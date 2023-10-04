@@ -6,7 +6,7 @@ This repository is structured as follows:
 
 - [`src`](src): contains the source code of the terrain LOD demo application written in C++ and OpenGL (the name *atlod* (A Terrain LOD (Renderer)) is just a temporary name I came up with for the demo application)
 - [`lib`](lib): contains third-party libraries for OpenGL (GLFW, GLEW, GLM) in form of Git submodules
-- [`report`](report): contains the $\text{\LaTeX}$ source code and the generated PDF of the project report
+- [`report`](report): contains the LaTeX source code and the generated PDF of the project report
 - [`research`](research): contains relevant research publications on terrain LOD (mainly for learning about the various approaches)
 
 ## Building
