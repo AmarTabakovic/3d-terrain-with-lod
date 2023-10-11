@@ -1,5 +1,5 @@
 # 3d-terrain-level-of-detail
-Project 2 by Amar Tabakovic
+Project 2 at the Bern University of Applied Sciences by Amar Tabakovic
 
 ## Repository Structure
 This repository is structured as follows:
