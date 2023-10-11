@@ -1,0 +1,52 @@
+\chapter{Algorithms and Approaches for Terrain LOD}
+\section{Basics of Terrain LOD}
+\subsection{Terrain Data Representation}
+One way of representing terrains is using \textit{heightmaps}.
+A heightmap is a $n\times n$-grid that contains 
+the height value $y$ for each $(x,z)$-position.
+Positions are always spaced evenly in a grid-like manner,
+but the distance between two neighboring vertices is variable
+and can be set by the terrain programmer.
+
+The main advantages of heightmaps are
+easy storage and manipulation of height values. %The terrain data can simply be read into the graphics API as vertices $(x,y,z)$ defined by the current grid position $(x,z)$ and height value $y$.
+Terrain height data can be easily stored as grayscale images,
+where low grayscale values represent low areas of terrain and vice versa for
+high grayscale values. Figure 1 shows a $2000 \times 2000$ heightmap of the mountain Dom in Valais, Switzerland.
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.44\textwidth]{dom}
+  \caption{$2000 \times 2000$ heightmap of the mountain Dom in Valais, Switzerland retrieved from SwissTopo \cite{alti3d}.}
+\end{figure}
+
+An alternative to the heightmap is the \textit{triangulated irregular network (TIN)} data structure.
+A TIN consists of a collection of 3D vertices where 
+the arrangement of vertices can be irregular.
+The main advantage of TINs is that fewer polygons need to be used for 
+e.g. smooth terrain areas. However, view culling, deformations and terrain following are 
+more difficult to implement. Also, the full $(x,y,z)$ coordinates need to be stored,
+whereas with heightmaps, only the height value $y$ needs to be stored.
+
+\subsection{Bintrees and Quadtrees}
+Binary triangle trees (bintrees) and quadtrees are 
+recursive data structures based on triangles and quads respectively.
+
+\subsection{Potential Problems}
+% TODO: Mention cracks, T-junctions, etc.
+
+\section{ROAM}
+ROAM (short for \textbf{R}eal-time \textbf{O}ptimally \textbf{A}dapting \textbf{M}eshes) is an algorithm by Duchaineau \textit{et al.} \cite{roam} published in 1997.
+
+ROAM represents the terrain mesh using bintrees. 
+
+The algorithm is driven by two priority queues: a split queue and a merge queue.
+The split queue contains triangle split operations 
+
+The main advantage of this approach is that the terrain mesh from a previous 
+frame can be used for the current frame. The mesh doesn't have 
+to be built from ground up each frame.
+
+
+\section{CDLOD}
+
+

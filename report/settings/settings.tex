@@ -16,6 +16,8 @@
 \usepackage{etoolbox}
 \usepackage{tikz}
 \usepackage[acronym]{glossaries}
+\usepackage{float}
+\usepackage[bottom]{footmisc}
 
 % Abstract
 \patchcmd{\abstract}{\null\vfil}{}{}{}
@@ -74,3 +76,8 @@
   colorlinks=true,
   allcolors=black
 }
+
+% Headers
+\fancyhf{}
+\lhead[\textit{\leftmark}]{}
+\rhead[]{\textit{\leftmark}}

@@ -1,20 +1,31 @@
 \chapter{Existing Work and Literature}
-This chapter gives an overview of the current state of terrain LOD research 
-and lists the main literature and resources used in this projet.
-
-
 \section{Research Articles and Publications}
-Terrain LOD is a well-researched topic. 
+Terrain LOD is a well-researched topic and over the last three decades, numerous approaches have been published.
+TODO: list research
 
 \section{Level of Detail for Computer Graphics}
-\textit{Level of Detail for Computer Graphics} by Luebke et al. \cite{lodfor3dgraphics} is a reference book for 
-         LOD rendering published in 2002. The book builds on top of years of research in the 
-         area of LOD and provides an overview to many LOD techniques. For this project,
-         chapter 7 ``Terrain Level of Detail'' of the book is especially relevant, as it dives into the topic of LOD for terrains specifically.
-         It covers basic approaches and techniques for terrain LOD, 
-         common problems that can occur during rendering of terrains and their solutions, and a catalog of terrain LOD algorithms.
-         Many of the described terrain LOD algorithms originated from research publications.
+\textit{Level of Detail for Computer Graphics} by Luebke \textit{et al.} \cite{lodfor3dgraphics} 
+is a reference book for the topic of 
+LOD published in 2002. The book builds on top of years of research in the 
+area of LOD and provides an overview to many LOD techniques. For this project,
+chapter 7 ``Terrain Level of Detail'' of the book is especially relevant, 
+as it dives into the topic of LOD for terrains specifically.
+It covers basic approaches and techniques for terrain LOD, 
+common problems that can arise during rendering of terrains and some solutions to them, 
+and a catalog of terrain LOD algorithms.
+
+\section{Focus on 3D Terrain Programing}
+\textit{Focus on 3D Terrain Programming} by Trent Polack \cite{focuson3dterrainprogramming} is a book on terrain programming published in 2002.
+Part one of the book introduces the reader to the basics of terrains, such as height maps and texturing. Part two then 
+covers some more advanced topics, including a selection of terrain LOD algorithms. The presented LOD algorithms are
+\begin{itemize}
+  \item ROAM by Duchaineau \textit{et al.} \cite{roam},
+  \item the quadtree-based algorithm described in ``Real-Time Generation of Continuous Levels of Detail for Height Fields'' by Röttger \textit{et al.} \cite{rottgerpaper},
+  \item and geomipmapping by de Boer \cite{geomipmapping}.
+\end{itemize}
+The book also includes demo source code in C++ and OpenGL.
 
 \section{Virtual Terrain Project}
 The \textit{Virtual Terrain Project} \cite{vtp} was a project run from 2001 to 2013 
-that consisted of a collection of software, information and resources on terrain modelling and rendering.
+that consisted of a collection of software, information and resources on terrain modelling and rendering,
+including a large overview of publications and implementations related to terrain LOD algorithms.

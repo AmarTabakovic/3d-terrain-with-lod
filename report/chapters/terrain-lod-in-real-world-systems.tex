@@ -1,20 +1,36 @@
 \chapter{Terrain LOD in Real-world Systems}
-This chapter lists a selection of real-world examples of terrain LOD algorithms in use,
-such as game engines and geographic information systems (GIS).
 \section{Game Engines}
 \subsection{Godot}
 Godot is a cross-platform game engine written in C\#, C++ and its own scripting language GDScript.
-Terrains are supported in form of extensions developed by community members, which can be installed and used in Godot projects by game developers.
+Terrains are supported in form of extensions developed by community members, 
+which can be installed and used in Godot projects by game developers.
+
 One such extension is Terrain3D by Cory Petkovsek \cite{godotterrain3dgithub} 
 written in C++ for Godot 4. The LOD approach used in this extension is based on 
 geometry clipmaps by Hoppe and Losasso \cite{geomclipmaps}. % TODO Explain algo in high-level fashion
 The concrete implementation
 of the geometry clipmap mesh code was created by Mike J Savage \cite{geomclipmapssavage}. 
+
+% TODO https://github.com/Zylann/godot_heightmap_plugin/blob/11e0db92c2f8e0e907ae173b983d73af1e35c4c2/addons/zylann.hterrain/doc/docs/index.md
+Another extension for terrains is Godot Heightmap Plugin by Marc Gilleron \cite{godotheightmapplugingithub} written in GDScript and C++.
+The extension uses a quadtree-based approach for terrain LOD. 
+
 \subsection{Unity}
+Unity is another cross-platform game engine written in C\# and C++, and has a 
+built-in terrain system. The core engine source code of Unity is only accessible
+by owning an enterprise licence, therefore no information is given on which 
+terrain LOD is used for the built-in terrain in Unity.
+
+Nonetheless, there exists an open-source library for hierarchical LOD in Unity called HLODSystem developed by JangKyu Seo at Unity TODO citation .
+HLODSystem also supports terrains with its TerrainHLOD component, allowing for conversion from an Unity Terrain object to a HLOD mesh with configurable parameters, such as chunk size and border vertex count.
+HLODSystem allows the developer to specify the mesh simplifier to be used and currently the only supported simplifier is UnityMeshSimplifier, 
+an open-source mesh simplifier developed by TODO that utilizes the fast quadratic mesh simplification algorithm developed by TODO citation.
+
 \subsection{Unreal Engine}
 Unreal Engine is another cross-platform game engine written in C++ and features
-an integrated terrain system (called the Landscape system).
+an integrated terrain system called the Landscape system.
 The technical documentation of Unreal Engine 5 mentions utilising geomipmapping for 
 handling LOD for landscapes \cite{unrealengine5doc}. Geomipmapping is a terrain LOD approach developed 
 in 2000 by de Boer \cite{geomipmapping}. % TODO Explain algo in high-level fashion
+
 \section{Geographic Information Systems}
