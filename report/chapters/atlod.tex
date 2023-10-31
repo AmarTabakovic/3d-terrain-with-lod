@@ -1,2 +1,36 @@
 \chapter{ATLOD: A Terrain Level of Detail (Renderer)}
 This chapter describes \textit{ATLOD} (short for \textbf{A} \textbf{T}errain \textbf{L}evel \textbf{o}f \textbf{D}etail (Renderer)), the demo terrain rendering application.
+
+\section{Preliminaries}
+\subsection{Used Technologies}
+ATLOD is written in C++17 and OpenGL 4.2.
+For compiling build files, CMake (minimum version 3.5) is used.
+ATLOD uses the following third-party libraries:
+\begin{itemize}
+  \item GLM: The \textit{OpenGL Mathematics (GLM)} library provides functionality for the mathematics of graphics programming, such as classes for vectors, matrices and perspective transformations.
+  \item GLEW: The \textit{OpenGL Extension Wranger Library (GLEW)} is an extension loading library for OpenGL. 
+  \item GLFW: 
+  \item STB: STB is a collection of header-only libraries developed by Sean Barrett TODO cite. ATLOD uses \texttt{stb\_image.h} for loading images of heightmaps and textures.
+\end{itemize}
+
+The source code is hosted on GitHub on the repository AmarTabakovic/3d-terrain-with-lod
+and is licensed under TODO.
+
+\subsection{Chosen Algorithms}
+The chosen algorithms and their reasons for implementing them are the following:
+\paragraph{Naive brute-force algorithm} The naive brute-force algorithm consists of simply reading in all height values from the heightmap as vertices and rendering them directly to the screen.
+The main reason for implementing the naive brute-force algorithm is to motivate the usage of terrain LOD algorithms by showing the difference in performance
+compared to the optimized LOD approaches.
+
+% TBD, depends on how far I come
+\paragraph{De Boer's GeoMipMapping} The GeoMipMapping
+% \paragraph{Hoppe and Lossaso's Geometry Clipmaps} TODO
+% \paragraph{Röttger's Quadtree-based Algorithm} TODO
+% \paragraph{Strugar's CDLOD} TODO
+
+\subsubsection{Algorithms Not Chosen}
+\paragraph{ROAM} Duchaineau's ROAM was not chosen to be implemented due to its CPU-heavy nature, which makes it not suitable
+for today's highly performant GPUs.
+
+\section{Architecture}
+TODO High-level class diagram
