@@ -1,36 +1,37 @@
 \chapter{Algorithms and Approaches for Terrain LOD}
 \section{Basics of Terrain LOD}
 \subsection{Terrain Data Representation}
+\subsubsection{Heightmaps}
 One way of representing terrains is using \textit{heightmaps}.
 A heightmap is a $n\times n$-grid that contains 
-the height value $y$ for each $(x,z)$-position.
+the height value $y$ for each $(x,z)$-position\footnote{We always denote $y$ for the up direction except if explicitly stated otherwise.}.
 Positions are always spaced evenly in a grid-like manner,
-but the distance between two neighboring vertices is variable
-and can be set by the terrain programmer.
+but the distance between any two neighboring positions is variable.
 
-The main advantage of heightmaps is that it allows for very simple storage and manipulation of height data.
-Terrain height data can easily be stored as grayscale images,
-where low grayscale values represent low areas of terrain and vice versa for
-high grayscale values. Looking up a height value for a given $(x,z)$-position is easy as well,
-which consists of a simple lookup at the given position.
-Figure 1 shows a $2000 \times 2000$ heightmap of the mountain Dom in Valais, Switzerland.
+The main advantage of heightmaps is that they allow for very simple storage and manipulation of height data, e.g. in form of images,
+where low color values represent low areas of terrain and vice versa for
+high color values. For a grayscale image, up to 256 height values can be used and for an RGB image,
+more than 16 million height values are supported.
+Looking up a height value for a given $(x,z)$-position is easy as well,
+which consists of a simple lookup at the given position in the image.
+Figure~\ref{fig:dom} shows a $2000 \times 2000$ heightmap of the mountain Dom in Valais, Switzerland.
 \begin{figure}
   \centering
   \includegraphics[width=0.44\textwidth]{dom}
-  \caption{$2000 \times 2000$ heightmap of the mountain Dom in Valais, Switzerland retrieved from SwissTopo \cite{alti3d}.}
+  \caption{$2000 \times 2000$ heightmap of the mountain Dom in Valais, Switzerland retrieved from SwissTopo \cite{alti3d}.}\label{fig:dom}
 \end{figure}
 
+\subsubsection{Triangulated Irregular Networks}
 An alternative to the heightmap is the \textit{triangulated irregular network (TIN)} data structure.
 A TIN consists of a collection of 3D vertices, where 
-the arrangement of vertices can be irregular. Figure 2 shows 
+the arrangement of vertices can be irregular. Figure~\ref{fig:tin-example} shows 
 an example of a TIN.
 \begin{figure}
   \centering
   \includegraphics[width=0.52\textwidth]{tin-example}
   \caption{Example of a TIN. Note that the upper area represents a terrain area with many changes 
-  (e.g. mountains, hills, etc.), and the lower area represents areas with few changes (e.g. flat areas)}.
+  (e.g. mountains, hills, etc.), and the lower area represents an area with few changes (e.g. flat areas).}\label{fig:tin-example}
 \end{figure}
-
 
 The main advantage of TINs is that fewer polygons need to be used for 
 e.g. smooth terrain areas. Another advantage is that
@@ -40,20 +41,58 @@ The disadvantage of TINs, however, is that the full $(x,y,z)$ coordinates need t
 whereas with heightmaps, only the height value $y$ needs to be stored.
 
 \subsection{Bintrees and Quadtrees}
-Binary triangle trees (bintrees) and quadtrees are 
+\textit{Binary triangle trees (bintrees)} and \textit{quadtrees} are 
 recursive data structures based on triangles and quads respectively.
-Figure TODO shows a TODO.
+A bintree consists of up to two child triangles, both of which in turn also consist of up to two child triangles each, and so on,
+as shown in figure~\ref{fig:bintree-example}.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.43\textwidth]{bintree-example}
+  \caption{Example of a bintree.}\label{fig:bintree-example}
+\end{figure}
+
+Quadtrees are structured similarly, with a quad consisting of up to four child quads, and each child quad consisting
+of up to four child quads, and so on.
+Figure~\ref{fig:quadtree-example} shows an example of a quadtree.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.52\textwidth]{quadtree-example}
+  \caption{Example of a quadtree.}\label{fig:quadtree-example}
+\end{figure}
+
 The main advantage of bintrees and quadtrees is that 
 LOD can be modelled very naturally with them.
-Bintree/quadtree sections with few children correspond to a low level of detail and 
+Bintree/quadtree sections with few children correspond to a low LOD and 
 vice versa for bintree/quadtree sections with many children.
 
 \subsection{Potential Problems During Terrain Rendering}
 While terrain LOD algorithms dramatically improve the performance of terrain rendering, 
 there are certain faults that can occur during rendering. 
-\paragraph{T-junctions} T-junctions occur when 
-\paragraph{Cracks} Cracks and holes in terrain occur when a higher LOD terrain section is bordered 
-by a lower LOD terrain section. 
+
+\paragraph{Cracks} Cracks and holes in terrains can appear when a higher LOD terrain section is bordered 
+by a lower LOD terrain section. The main problem is that when a vertex $v_{\text{high}}$ of a higher LOD terrain section lies on the edge $e_{\text{low}}$
+of a lower LOD terrain section and the $y$ coordinate of $v_{\text{high}}$ is greater or less than the 
+height of $e_{\text{low}}$ at that point, the difference in height causes the crack to appear, as shown in figure~\ref{fig:crack-example}.
+Cracks can be solved by either 
+\begin{itemize}
+  \item removing the vertex in question (in figure~\ref{fig:crack-example} vertex $v_{\text{high}}$),
+  \item inserting more vertices so that the LOD,
+  \item or by force splitting the mesh so that the LOD does not contain such vertices that can cause holes.
+\end{itemize}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.6\textwidth]{crack-example}
+  \caption{Example of a crack.}\label{fig:crack-example}
+\end{figure}
+
+\paragraph{Popping} The phenomenon of \textit{popping} occurs when the camera is moving 
+and the transition of the terrain's LOD level causes visual pops to appear.
+Popping decreases the realism of the terrain and should be as minimal as possible.
+Popping can be reduced by introducing \textit{vertex morphing}, 
+i.e. by animating the transition of one LOD level to the next seamlessly.
 
 \section{ROAM}
 ROAM (short for \textbf{R}eal-time \textbf{O}ptimally \textbf{A}dapting \textbf{M}eshes) 
@@ -65,7 +104,7 @@ The central idea of the algorithm is to use temporal coherence: the mesh from a 
 the mesh of the current frame $\mathbf{T}$, rather than building up the mesh from ground up for each frame.
 This is done using two priority queues: a split queue $\mathcal{Q}_s$ and a merge queue $\mathcal{Q}_m$.
 The split queue contains splittable triangle pairs $()$
-and the merge queue contains mergable triangle pairs $()$.
+and the merge queue contains mergable triangle pairs $(T,T_B)$.
 The elements of the priority queues are ordered by 
 various geometric error metrics, which will be explained in the subsection ``Error Metrics''.
 ROAM is a greedy algorithm, meaning it will always compute the most optimal mesh for each frame.
@@ -112,8 +151,8 @@ The error metrics used for the priority queues are the following:
 
 \paragraph{Wedgies} The so-called \textit{Wedgies} are nested bounding volumes around triangles that are computed 
 while building an initial mesh at the beginning of the algorithm.
-A wedgie is defined to contain the entire $x$ and $y$ extent % TODO is this the right coordinate system? 
-of a triangle and the height $z$ including some additional space above and below the highest and lowest points,
+A wedgie is defined to contain the entire $x$ and $z$ extent\footnote{The original ROAM paper uses $z$ for the up direction. For the sake of consistency with the rest of this report, we will use $y$ as the up direction here.}
+of a triangle and the height $y$ including some additional space above and below the highest and lowest points,
 respectively.
 
 \paragraph{Geometric Screen Distortion}
@@ -124,20 +163,20 @@ respectively.
 Duchaineau et al. report that the runtime of ROAM is proportionate to the 
 number of triangle changes.
 
-\section{Röttger's Quadtree-based Algorithm}
-TODO
+%\section{Röttger's Quadtree-based Algorithm}
+%TODO
 
 \section{GeoMipMapping}
 Geometrical Mipmapping (GeoMipMapping) is a terrain LOD approach developed by de Boer \cite{geomipmapping} in the year 2000.
 Its reported main improvement over the previous algorithms is 
 
 De Boer introduces the GeoMipMapping analogy based on texture mipmapping: multiple levels of 
-GeoMipMaps get created for a terrain section, each for a level of detail, and depending on the distance
+GeoMipMaps get created for a terrain section, each for a LOD, and depending on the distance
 from the camera, the terrain section with the appropriate LOD level gets rendered.
 
-\section{Geometry Clipmaps}
-TODO
+%\section{Geometry Clipmaps}
+%TODO
 
-\section{CDLOD}
-TODO
+%\section{CDLOD}
+%TODO
 
