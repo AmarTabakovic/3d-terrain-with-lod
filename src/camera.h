@@ -38,6 +38,7 @@ public:
     Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch);
     glm::mat4 getViewMatrix();
     float getZoom();
+    glm::vec3 getPosition();
     void processKeyboard(CameraAction direction, float deltaTime);
     // void processMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
 

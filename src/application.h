@@ -6,6 +6,15 @@
 #include <GLFW/glfw3.h>
 
 namespace Application {
+
+/**
+ * @brief The ColorMode enum
+ */
+enum ColorMode {
+    DARK = 0,
+    BRIGHT = 1
+};
+
 int setup();
 int run();
 void processInput();

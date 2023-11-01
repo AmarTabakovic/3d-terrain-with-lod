@@ -19,7 +19,7 @@ Heightmap::Heightmap(unsigned int width, unsigned int height)
  * @param y
  * @return
  */
-unsigned char Heightmap::at(unsigned int x, unsigned int z)
+unsigned int Heightmap::at(unsigned int x, unsigned int z)
 {
     /* z -> row, x -> column*/
     try {
@@ -30,20 +30,7 @@ unsigned char Heightmap::at(unsigned int x, unsigned int z)
     }
 }
 
-void Heightmap::insertAt(unsigned int x, unsigned int z, unsigned char heightValue)
-{
-    // data.insert((int)(z * height + x), heightValue);
-}
-
-void Heightmap::push(unsigned char heightValue)
+void Heightmap::push(unsigned int heightValue)
 {
     data.push_back(heightValue);
 }
-
-/*
-int Heightmap::loadData(std::string& fileName)
-{
-    // Load from file name
-    return 0;
-}
-*/

@@ -61,6 +61,15 @@ float Camera::getZoom()
 }
 
 /**
+ * @brief Camera::getPosition
+ * @return
+ */
+glm::vec3 Camera::getPosition()
+{
+    return position;
+}
+
+/**
  * @brief Camera::processKeyboard
  * @param direction
  * @param deltaTime
@@ -98,13 +107,12 @@ void Camera::processKeyboard(CameraAction direction, float deltaTime)
  */
 void Camera::updateCameraVectors()
 {
-    // calculate the new Front vector
     glm::vec3 front1;
     front1.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
     front1.y = sin(glm::radians(pitch));
     front1.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
     this->front = glm::normalize(front1);
-    // also re-calculate the Right and Up vector
-    right = glm::normalize(glm::cross(front, worldUp)); // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
+
+    right = glm::normalize(glm::cross(front, worldUp));
     up = glm::normalize(glm::cross(right, front));
 }

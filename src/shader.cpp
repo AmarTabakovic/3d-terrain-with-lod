@@ -12,11 +12,6 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath)
     int vertexId = loadShaderProgram(vertexPath, GL_VERTEX_SHADER);
     int fragmentId = loadShaderProgram(fragmentPath, GL_FRAGMENT_SHADER);
 
-    /* Check whether vertex and fragment shader loading failed */
-    /*if (vertexId == -1 || fragmentId == -1) {
-        exit(-1);
-    }*/
-
     /* Create and link shader program */
     id = glCreateProgram();
     glAttachShader(id, vertexId);

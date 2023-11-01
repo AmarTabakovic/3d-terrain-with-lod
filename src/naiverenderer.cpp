@@ -8,14 +8,12 @@
  *
  * TODO: arguments for scale and shift? maybe for x and z grid spacing?
  */
-NaiveRenderer::NaiveRenderer(std::string& fileName)
-//: Terrain(fileName)
+NaiveRenderer::NaiveRenderer(std::string& heightmapFileName, std::string& textureFileName)
+    : Terrain(heightmapFileName, textureFileName)
 {
     shader = new Shader("../3d-terrain-with-lod/src/glsl/naiverenderer.vert", "../3d-terrain-with-lod/src/glsl/naiverenderer.frag");
-    loadHeightmap(fileName);
-
-    std::string textureFile = "../3d-terrain-with-lod/data/dom-texture-highres.png";
-    loadTexture(textureFile);
+    loadHeightmap(heightmapFileName);
+    loadTexture(textureFileName);
 }
 
 /**
@@ -29,74 +27,15 @@ NaiveRenderer::~NaiveRenderer()
 }
 
 /**
- * @brief NaiveRenderer::loadTexture
- * @param fileName
- */
-void NaiveRenderer::loadTexture(std::string& fileName)
-{
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    int width, height, nrChannels;
-    unsigned char* data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, 0);
-    if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    } else {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-    stbi_image_free(data);
-}
-
-/**
- * @brief NaiveRenderer::loadHeightmap
- * @param fileName
- *
- * TODO: GDAL for GeoTIFF?
- */
-void NaiveRenderer::loadHeightmap(std::string& fileName)
-{
-    int width, height, nrChannels;
-
-    unsigned char* data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, 0);
-
-    if (data) {
-        std::cout << "Loaded heightmap of size " << height << " x " << width << std::endl;
-    } else {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-
-    heightmap = new Heightmap(width, height);
-
-    unsigned int bytePerPixel = nrChannels;
-
-    for (int i = 0; i < height; i++) {
-        for (int j = 0; j < width; j++) {
-            unsigned char* pixelOffset = data + (j + width * i) * bytePerPixel;
-            unsigned char y = pixelOffset[0];
-
-            heightmap->push(y);
-        }
-    }
-
-    stbi_image_free(data);
-}
-
-/**
- * @brief render
+ * @brief NaiveRenderer::render
  */
 void NaiveRenderer::render()
 {
-    int height = heightmap->height;
-    int width = heightmap->width;
+    unsigned int height = heightmap->height;
+    unsigned int width = heightmap->width;
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    glBindTexture(GL_TEXTURE_2D, textureId);
 
     glBindVertexArray(terrainVAO);
 
@@ -113,16 +52,16 @@ void NaiveRenderer::render()
  */
 void NaiveRenderer::loadBuffers()
 {
-    unsigned int height = heightmap->height;
-    unsigned int width = heightmap->width;
+    int height = heightmap->height;
+    int width = heightmap->width;
     std::vector<float> vertices;
 
-    float scale = 1.2f; /* Scale in y direction */
+    float scale = 0.5f; /* Scale in y direction */
 
     for (unsigned int i = 0; i < height; i++) {
         for (unsigned int j = 0; j < width; j++) {
 
-            unsigned char y = heightmap->at(j, i);
+            unsigned int y = heightmap->at(j, i);
 
             /* Render vertices around center point */
             vertices.push_back(-height / 2.0f + height * i / (float)height); /* vertex x */
@@ -149,10 +88,11 @@ void NaiveRenderer::loadBuffers()
     glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), &vertices[0], GL_STATIC_DRAW);
 
-    // position attribute
+    /* Position attribute */
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
+    /* Texture attribute */
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
@@ -160,7 +100,10 @@ void NaiveRenderer::loadBuffers()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrainEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
 
-    std::cout << "LOAD ERROR" << glGetError() << std::endl;
+    GLenum error = glGetError();
+    if (error != 0) {
+        std::cout << "Error " << std::endl;
+    }
 }
 
 /**

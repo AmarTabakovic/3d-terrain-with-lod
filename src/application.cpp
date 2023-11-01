@@ -24,27 +24,21 @@ namespace Application {
 const unsigned int SCR_WIDTH = 1000;
 const unsigned int SCR_HEIGHT = 800;
 
+unsigned int windowWidth = SCR_WIDTH;
+unsigned int windowHeight = SCR_HEIGHT;
+
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 GLFWwindow* window;
 
-unsigned int windowWidth = SCR_WIDTH;
-unsigned int windowHeight = SCR_HEIGHT;
-
 bool renderWireframe = false;
-
-/**
- * @brief The ColorMode enum
- */
-enum ColorMode {
-    DARK = 0,
-    BRIGHT = 1
-};
 
 ColorMode mode = DARK;
 
-Camera camera;
+Camera camera = Camera(glm::vec3(123.0f, 250.5f, 123.9f),
+    glm::vec3(0.0f, 1.0f, 0.0f),
+    0.1f, -40.4f);
 
 /**
  * @brief Application::setup
@@ -52,13 +46,6 @@ Camera camera;
  */
 int setup()
 {
-    /*std::filesystem::path cwd = std::filesystem::current_path();
-    std::cout << cwd << std::endl;*/
-
-    camera = Camera(glm::vec3(-107.0f, 430.5f, 69.9f),
-        glm::vec3(0.0f, 1.0f, 0.0f),
-        0.1f, -40.4f);
-
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -97,8 +84,10 @@ int run()
 
     glEnable(GL_DEPTH_TEST);
 
-    std::string path = "../3d-terrain-with-lod/data/dom-1028.png";
-    NaiveRenderer naive(path);
+    // std::string path = "../3d-terrain-with-lod/data/dom-1028.png";
+    std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test.png";
+    std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
+    NaiveRenderer naive(heightmapPath, texturePath);
 
     naive.loadBuffers();
 
@@ -131,13 +120,8 @@ int run()
 
         glm::mat4 projection = glm::perspective(glm::radians(camera.getZoom()), (float)windowWidth / (float)windowHeight, 0.1f, 100000.0f);
         glm::mat4 view = camera.getViewMatrix();
-
-        // TODO: Offload this? Or maybe as arguments to render()?
-        // naive.shader->setFloat("mode", (float)mode);
-        // naive.shader->setFloat("wiref", (float)(renderWireframe == true ? 1.0f : 0.0f));
-
-        // float renderWireframeFloat = renderWireframe == true ? 1.0f : 0.0f;
         glm::vec2 settings = glm::vec2((float)mode, (float)renderWireframe);
+
         naive.shader->setVec2("rendersettings", settings);
 
         naive.shader->setMat4("projection", projection);
@@ -203,7 +187,6 @@ void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action
         switch (key) {
         case GLFW_KEY_SPACE:
             renderWireframe = !renderWireframe;
-            std::cout << "SPACE\n";
             break;
         case GLFW_KEY_M:
             mode = mode == DARK ? BRIGHT : DARK;

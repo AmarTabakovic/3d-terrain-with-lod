@@ -5,13 +5,13 @@ in vec2 TexCoord;
 
 out vec4 FragColor;
 
-uniform vec2 rendersettings;
+//uniform vec2 rendersettings;
 uniform sampler2D texture1;
 
 void main()
 {
-    vec4 color;// = vec4(0.3, 0.3, 0.3, 1.0);
-    float mode = rendersettings.x;
+    vec4 color = (0.3, 0.3, 0.3, 1.0);
+    /*float mode = rendersettings.x;
     float useWire = rendersettings.y;
 
    if (useWire < 0.5f) {
@@ -23,6 +23,6 @@ void main()
         else {
             color = vec4(0.8, 0.8, 0.8, 1.0);
         }
-    }
+    }*/
     FragColor = color;
 }

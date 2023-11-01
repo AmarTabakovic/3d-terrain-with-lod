@@ -3,15 +3,24 @@
 
 #include "terrain.h"
 
-class GeoMipMapping : Terrain {
+/**
+ * @brief The GeoMipMapping class
+ */
+class GeoMipMapping /*: Terrain*/ {
 public:
     GeoMipMapping();
+    void render();
+    void loadBuffers();
+    void unloadBuffers();
 };
 
+/**
+ * @brief The Patch class
+ */
 class Patch {
 public:
     float distance;
-    int lod;
+    unsigned int lod;
 };
 
 #endif // GEOMIPMAPPING_H

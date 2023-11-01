@@ -9,14 +9,13 @@
 class Heightmap {
 
 public:
-    std::vector<unsigned char> data;
+    std::vector<unsigned int> data;
     unsigned int width;
     unsigned int height;
-    Heightmap(unsigned int width, unsigned int height);
 
-    unsigned char at(unsigned int x, unsigned int z);
-    void insertAt(unsigned int x, unsigned int z, unsigned char heightValue);
-    void push(unsigned char heightValue);
+    Heightmap(unsigned int width, unsigned int height);
+    unsigned int at(unsigned int x, unsigned int z);
+    void push(unsigned int heightValue);
 
     // int loadData(std::string& fileName);
 };
