@@ -1,4 +1,5 @@
 #include "terrain.h"
+#include <filesystem>
 #include <iostream>
 
 // #define STB_IMAGE_IMPLEMENTATION
@@ -18,6 +19,23 @@ Terrain::Terrain(std::string& heightmapFileName, std::string& textureFileName)
  * @param fileName
  */
 void Terrain::loadHeightmap(std::string& fileName)
+{
+    const std::string& extension = std::filesystem::path(fileName).extension();
+    if (extension == ".png" || extension == ".jpg") {
+        loadHeightmapImage(fileName);
+    } else if (extension == ".asc") {
+        loadHeightmapAsciiGrid(fileName);
+    } else {
+        std::cout << "File extension not supported: " << extension << std::endl;
+        std::exit(1);
+    }
+}
+
+/**
+ * @brief Terrain::loadHeightmapImage
+ * @param fileName
+ */
+void Terrain::loadHeightmapImage(std::string& fileName)
 {
     int width, height, nrChannels;
 
@@ -43,6 +61,24 @@ void Terrain::loadHeightmap(std::string& fileName)
     }
 
     stbi_image_free(data);
+}
+
+/**
+ * @brief Terrain::loadHeightmapAsciiGrid
+ *
+ * TODO: Use a library for loading ASCII grids maybe?
+ *
+ * @param fileName
+ */
+void Terrain::loadHeightmapAsciiGrid(std::string& fileName)
+{
+    /*
+     * 1. Load file with file name
+     * 2. Iterate through each line from line 7 onwards
+     * 3. Add coordinates
+     */
+    std::cout << "Not yet implemented" << std::endl;
+    std::exit(1);
 }
 
 /**

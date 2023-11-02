@@ -20,6 +20,8 @@ public:
     Terrain(std::string& heightmapFileName, std::string& textureFileName);
     ~Terrain() { }
     void loadHeightmap(std::string& fileName);
+    void loadHeightmapImage(std::string& fileName);
+    void loadHeightmapAsciiGrid(std::string& fileName);
     void loadTexture(std::string& fileName);
     Heightmap* heightmap;
     Shader* shader;
