@@ -56,17 +56,20 @@ void NaiveRenderer::loadBuffers()
     int width = heightmap->width;
     std::vector<float> vertices;
 
-    float scale = 0.5f; /* Scale in y direction */
+    float yScale = 10; // 0.5f; /* Scale in y direction */
+    float xzScale = 30;
 
     for (unsigned int i = 0; i < height; i++) {
         for (unsigned int j = 0; j < width; j++) {
 
-            unsigned int y = heightmap->at(j, i);
+            float y = heightmap->at(j, i) * yScale;
+            float x = (-height / 2.0f + height * i / (float)height) * xzScale;
+            float z = (-width / 2.0f + width * j / (float)width) * xzScale;
 
             /* Render vertices around center point */
-            vertices.push_back(-height / 2.0f + height * i / (float)height); /* vertex x */
-            vertices.push_back((float)y * scale); /* vertex y */
-            vertices.push_back(-width / 2.0f + width * j / (float)width); /* vertex z */
+            vertices.push_back(x); /* vertex x */
+            vertices.push_back(y); /* vertex y */
+            vertices.push_back(z); /* vertex z */
             vertices.push_back((float)j / (float)width); /* texture x */
             vertices.push_back((float)i / (float)height); /* texture y */
         }
