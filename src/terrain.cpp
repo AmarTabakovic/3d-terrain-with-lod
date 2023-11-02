@@ -1,6 +1,8 @@
 #include "terrain.h"
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 
 // #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -42,7 +44,7 @@ void Terrain::loadHeightmapImage(std::string& fileName)
     unsigned char* data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, 0);
 
     if (data) {
-        std::cout << "Loaded heightmap of size " << height << " x " << width << std::endl;
+        std::cout << "Loaded heightmap of size " << width << " x " << height << std::endl;
     } else {
         std::cout << "Failed to load heightmap" << std::endl;
     }
@@ -72,13 +74,51 @@ void Terrain::loadHeightmapImage(std::string& fileName)
  */
 void Terrain::loadHeightmapAsciiGrid(std::string& fileName)
 {
-    /*
-     * 1. Load file with file name
-     * 2. Iterate through each line from line 7 onwards
-     * 3. Add coordinates
-     */
-    std::cout << "Not yet implemented" << std::endl;
-    std::exit(1);
+    std::ifstream heightmapFile(fileName);
+    std::string line;
+    unsigned int nCols, nRows;
+
+    if (!heightmapFile.is_open()) {
+        std::cout << "Error while reading heightmap file" << std::endl;
+        std::exit(1);
+    }
+
+    try {
+        /* First line */
+        std::getline(heightmapFile, line);
+        nCols = std::stoi(line.substr(line.find_first_of("0123456789")));
+
+        /* Second line */
+        std::getline(heightmapFile, line);
+        nRows = std::stoi(line.substr(line.find_first_of("0123456789")));
+
+        heightmap = new Heightmap(nCols, nRows);
+
+        /* Skip rest until line 7 */
+        for (int i = 3; i < 7; i++) {
+            std::getline(heightmapFile, line);
+            std::cout << line << std::endl;
+        }
+
+        while (std::getline(heightmapFile, line)) {
+            std::string item;
+            std::stringstream ss(line);
+
+            /* Skip space at the beginning */
+            std::getline(ss, item, ' ');
+
+            while (std::getline(ss, item, ' ')) {
+                heightmap->push(std::stoi(item));
+            }
+        }
+    } catch (...) {
+        std::cout << "Invalid .asc file" << std::endl;
+        exit(1);
+    }
+
+    std::cout << "Loaded heightmap of size " << nCols << " x " << nRows << std::endl;
+
+    heightmapFile.close();
 }
 
 /**

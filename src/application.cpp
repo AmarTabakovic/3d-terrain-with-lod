@@ -85,7 +85,7 @@ int run()
     glEnable(GL_DEPTH_TEST);
 
     // std::string path = "../3d-terrain-with-lod/data/dom-1028.png";
-    std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test.png";
+    std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
     std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
     NaiveRenderer naive(heightmapPath, texturePath);
 

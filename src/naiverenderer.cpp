@@ -56,7 +56,7 @@ void NaiveRenderer::loadBuffers()
     int width = heightmap->width;
     std::vector<float> vertices;
 
-    float yScale = 10; // 0.5f; /* Scale in y direction */
+    float yScale = 1; // 0.5f; /* Scale in y direction */
     float xzScale = 30;
 
     for (unsigned int i = 0; i < height; i++) {
