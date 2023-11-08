@@ -17,16 +17,20 @@ class Terrain {
 private:
 
 public:
-    Terrain(std::string& heightmapFileName, std::string& textureFileName);
+    // Terrain(std::string& heightmapFileName, std::string& textureFileName);
+    Terrain();
     ~Terrain() { }
     void loadHeightmap(std::string& fileName);
     void loadHeightmapImage(std::string& fileName);
     void loadHeightmapAsciiGrid(std::string& fileName);
+    void loadHeightmapXyz(std::string& fileName);
     void loadTexture(std::string& fileName);
     Heightmap* heightmap;
     Shader* shader;
     unsigned int textureId;
     unsigned int terrainVAO, terrainVBO, terrainEBO;
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
     virtual void loadBuffers() = 0;
     virtual void unloadBuffers() = 0;
     virtual void render() = 0;

@@ -1,4 +1,5 @@
 #include "terrain.h"
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -12,7 +13,11 @@
  * @param heightmapFileName
  * @param textureFileName
  */
-Terrain::Terrain(std::string& heightmapFileName, std::string& textureFileName)
+/*Terrain::Terrain(std::string& heightmapFileName, std::string& textureFileName)
+{
+}*/
+
+Terrain::Terrain()
 {
 }
 
@@ -27,10 +32,68 @@ void Terrain::loadHeightmap(std::string& fileName)
         loadHeightmapImage(fileName);
     } else if (extension == ".asc") {
         loadHeightmapAsciiGrid(fileName);
+    } else if (extension == ".xyz") {
+        loadHeightmapXyz(fileName);
     } else {
         std::cout << "File extension not supported: " << extension << std::endl;
         std::exit(1);
     }
+}
+
+/**
+ * @brief Load a heightmap with a simple list of XYZ points, as used by e.g. SwissTopo.
+ * @param fileName
+ */
+void Terrain::loadHeightmapXyz(std::string& fileName)
+{
+    std::ifstream heightmapFile(fileName);
+    std::string line;
+
+    if (!heightmapFile.is_open()) {
+        std::cout << "Error while reading heightmap file" << std::endl;
+        std::exit(1);
+    }
+
+    /* Skip first line */
+    std::getline(heightmapFile, line);
+
+    unsigned int nLines = 0;
+    while (std::getline(heightmapFile, line))
+        nLines++;
+
+    unsigned int heightmapSize = std::sqrt(nLines);
+
+    if (heightmapSize * heightmapSize != nLines) {
+        std::cout << "XYZ heightmap must be square" << std::endl;
+        std::exit(1);
+    }
+
+    heightmap = new Heightmap(heightmapSize, heightmapSize);
+
+    /* Reset file to beginning */
+    heightmapFile.clear();
+    heightmapFile.seekg(0);
+
+    /* Skip first line */
+    std::getline(heightmapFile, line);
+
+    while (std::getline(heightmapFile, line)) {
+        float x, y, z;
+        int ret = std::sscanf(line.c_str(), "%f %f %f",
+            &x, &z, &y);
+
+        if (ret != 3) {
+            std::cout << "XYZ heightmap not formatted correctly" << std::endl;
+            std::cout << line << std::endl;
+            std::exit(1);
+        }
+
+        heightmap->push(std::roundf(y));
+    }
+
+    std::cout << "Loaded heightmap of size " << heightmapSize << " x " << heightmapSize << std::endl;
+
+    heightmapFile.close();
 }
 
 /**
@@ -138,7 +201,7 @@ void Terrain::loadTexture(std::string& fileName)
     int width, height, nrChannels;
     unsigned char* data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, 0);
     if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
         std::cout << "Failed to load texture" << std::endl;

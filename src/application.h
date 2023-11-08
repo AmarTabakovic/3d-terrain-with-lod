@@ -5,6 +5,9 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+/**
+ *
+ */
 namespace Application {
 
 /**
@@ -13,6 +16,14 @@ namespace Application {
 enum ColorMode {
     DARK = 0,
     BRIGHT = 1
+};
+
+/**
+ * @brief The CurrentTerrain enum
+ */
+enum CurrentTerrain {
+    NAIVE = 0,
+    GEOMIPMAPPING = 1
 };
 
 int setup();

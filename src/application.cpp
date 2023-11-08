@@ -1,6 +1,3 @@
-/**
- * TODO: Rewrite as namespace
- */
 
 #include "application.h"
 
@@ -36,7 +33,7 @@ bool renderWireframe = false;
 
 ColorMode mode = DARK;
 
-Camera camera = Camera(glm::vec3(123.0f, 250.5f, 123.9f),
+Camera camera = Camera(glm::vec3(123.0f, 1550.5f, 123.9f),
     glm::vec3(0.0f, 1.0f, 0.0f),
     0.1f, -40.4f);
 
@@ -84,9 +81,12 @@ int run()
 
     glEnable(GL_DEPTH_TEST);
 
-    // std::string path = "../3d-terrain-with-lod/data/dom-1028.png";
-    std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/dom-1028.png";
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
+    std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
     std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
+    // std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
     NaiveRenderer naive(heightmapPath, texturePath);
 
     naive.loadBuffers();
@@ -126,6 +126,9 @@ int run()
 
         naive.shader->setMat4("projection", projection);
         naive.shader->setMat4("view", view);
+
+        naive.shader->setFloat("xzScale", 30.0f);
+        naive.shader->setFloat("yScale", 1.0f);
 
         glm::mat4 model = glm::mat4(1.0f);
         naive.shader->setMat4("model", model);

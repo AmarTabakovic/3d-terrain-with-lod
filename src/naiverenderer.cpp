@@ -9,7 +9,7 @@
  * TODO: arguments for scale and shift? maybe for x and z grid spacing?
  */
 NaiveRenderer::NaiveRenderer(std::string& heightmapFileName, std::string& textureFileName)
-    : Terrain(heightmapFileName, textureFileName)
+//: //Terrain(heightmapFileName, textureFileName)
 {
     shader = new Shader("../3d-terrain-with-lod/src/glsl/naiverenderer.vert", "../3d-terrain-with-lod/src/glsl/naiverenderer.frag");
     loadHeightmap(heightmapFileName);
@@ -54,11 +54,11 @@ void NaiveRenderer::loadBuffers()
 {
     int height = heightmap->height;
     int width = heightmap->width;
-    std::vector<float> vertices;
 
     float yScale = 1; // 0.5f; /* Scale in y direction */
-    float xzScale = 30;
+    float xzScale = 1; // 30;
 
+    /* Set up vertex buffer */
     for (unsigned int i = 0; i < height; i++) {
         for (unsigned int j = 0; j < width; j++) {
 
@@ -75,7 +75,7 @@ void NaiveRenderer::loadBuffers()
         }
     }
 
-    std::vector<unsigned int> indices;
+    /* Set up index buffer */
     for (unsigned int i = 0; i < height - 1; i++) {
         for (unsigned int j = 0; j < width; j++) {
             for (unsigned int k = 0; k < 2; k++) {
