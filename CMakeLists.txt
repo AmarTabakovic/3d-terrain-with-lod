@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(APP_TARGET atlod)
 
-add_executable(${APP_TARGET} src/camera.cpp src/shader.cpp src/main.cpp src/terrain.cpp src/naiverenderer.cpp src/application.cpp src/heightmap.cpp)
+add_executable(${APP_TARGET} src/camera.cpp src/shader.cpp src/main.cpp src/terrain.cpp src/naiverenderer.cpp src/geomipmapping.cpp src/application.cpp src/heightmap.cpp)
 
 add_definitions(-DGLEW_STATIC)
 add_subdirectory(lib/glfw EXCLUDE_FROM_ALL)
