@@ -10,6 +10,7 @@ const float PITCH = 0.0f;
 const float SPEED = 75.5f;
 const float SPEED_UP_MULT = 4;
 const float ZOOM = 45.0f;
+const float LOOK_VELOCITY = 2;
 
 /**
  * @brief The CameraMovement enum

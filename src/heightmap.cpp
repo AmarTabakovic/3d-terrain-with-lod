@@ -25,7 +25,7 @@ unsigned int Heightmap::at(unsigned int x, unsigned int z)
     try {
         return data.at(z * width + x);
     } catch (std::out_of_range) {
-        std::cout << "Failed fetching height at " << z << ", " << x << "\n";
+        std::cout << "Failed fetching height at " << z << ", " << x << std::endl;
         std::exit(1);
     }
 }

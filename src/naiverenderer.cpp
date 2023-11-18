@@ -9,7 +9,6 @@
  * TODO: arguments for scale and shift? maybe for x and z grid spacing?
  */
 NaiveRenderer::NaiveRenderer(std::string& heightmapFileName, std::string& textureFileName)
-//: //Terrain(heightmapFileName, textureFileName)
 {
     shader = new Shader("../3d-terrain-with-lod/src/glsl/naiverenderer.vert", "../3d-terrain-with-lod/src/glsl/naiverenderer.frag");
     loadHeightmap(heightmapFileName);
@@ -29,42 +28,41 @@ NaiveRenderer::~NaiveRenderer()
 /**
  * @brief NaiveRenderer::render
  */
-void NaiveRenderer::render()
+void NaiveRenderer::render(Camera camera)
 {
-    unsigned int height = heightmap->height;
-    unsigned int width = heightmap->width;
+    glEnable(GL_PRIMITIVE_RESTART);
+    glPrimitiveRestartIndex(RESTART);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureId);
 
     glBindVertexArray(terrainVAO);
+    glDrawElements(GL_TRIANGLE_STRIP, indices.size() * sizeof(unsigned int), GL_UNSIGNED_INT, (void*)0);
 
-    for (unsigned int strip = 0; strip < height - 1; strip++) {
-        glDrawElements(GL_TRIANGLE_STRIP,
-            width * 2,
-            GL_UNSIGNED_INT,
-            (void*)(sizeof(unsigned int) * (width * 2) * strip));
+    GLenum error = glGetError();
+    if (error != 0) {
+        std::cout << "Error " << std::endl;
+        std::exit(-1);
     }
 }
 
 /**
- * @brief NaiveRenderer::loadBuffers
+ * @brief Initializes and loads the buffers for rendering
+ *
+ * This method should be called once before entering the main rendering loop.
  */
 void NaiveRenderer::loadBuffers()
 {
     int height = heightmap->height;
     int width = heightmap->width;
 
-    float yScale = 1; // 0.5f; /* Scale in y direction */
-    float xzScale = 1; // 30;
-
     /* Set up vertex buffer */
     for (unsigned int i = 0; i < height; i++) {
         for (unsigned int j = 0; j < width; j++) {
 
             float y = heightmap->at(j, i) * yScale;
-            float x = (-height / 2.0f + height * i / (float)height) * xzScale;
-            float z = (-width / 2.0f + width * j / (float)width) * xzScale;
+            float x = (-height / 2.0f + height * i / (float)height);
+            float z = (-width / 2.0f + width * j / (float)width);
 
             /* Render vertices around center point */
             vertices.push_back(x); /* vertex x */
@@ -78,10 +76,10 @@ void NaiveRenderer::loadBuffers()
     /* Set up index buffer */
     for (unsigned int i = 0; i < height - 1; i++) {
         for (unsigned int j = 0; j < width; j++) {
-            for (unsigned int k = 0; k < 2; k++) {
-                indices.push_back(j + width * (i + k));
-            }
+            indices.push_back(j + width * i);
+            indices.push_back(j + width * (i + 1));
         }
+        indices.push_back(RESTART);
     }
 
     glGenVertexArrays(1, &terrainVAO);

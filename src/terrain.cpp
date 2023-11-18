@@ -128,6 +128,10 @@ void Terrain::loadHeightmapImage(std::string& fileName)
     stbi_image_free(data);
 }
 
+Terrain::~Terrain()
+{
+}
+
 /**
  * @brief Terrain::loadHeightmapAsciiGrid
  *
@@ -190,6 +194,7 @@ void Terrain::loadHeightmapAsciiGrid(std::string& fileName)
  */
 void Terrain::loadTexture(std::string& fileName)
 {
+    std::cout << "Loading texture" << std::endl;
     glGenTextures(1, &textureId);
     glBindTexture(GL_TEXTURE_2D, textureId);
 
@@ -201,10 +206,17 @@ void Terrain::loadTexture(std::string& fileName)
     int width, height, nrChannels;
     unsigned char* data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, 0);
     if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        // TODO: RGBA?
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
         std::cout << "Failed to load texture" << std::endl;
     }
     stbi_image_free(data);
+
+    std::cout << "Loaded texture" << std::endl;
+
+    /* Bind texture ID */
+    /*shader->use();
+    shader->setInt("texture1", 0);*/
 }

@@ -1,6 +1,7 @@
 #ifndef NAIVERENDERER_H
 #define NAIVERENDERER_H
 
+#include "camera.h"
 #include "shader.h"
 #include "terrain.h"
 
@@ -29,8 +30,10 @@ public:
     // unsigned int texture;
 
     void loadBuffers();
-    void render();
+    void render(Camera camera);
     void unloadBuffers();
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
 };
 
 #endif // NAIVERENDERER_H

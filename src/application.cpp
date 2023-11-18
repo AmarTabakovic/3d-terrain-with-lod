@@ -1,6 +1,7 @@
 
 #include "application.h"
 
+#include "geomipmapping.h"
 #include "naiverenderer.h"
 #include "shader.h"
 
@@ -33,7 +34,7 @@ bool renderWireframe = false;
 
 ColorMode mode = DARK;
 
-Camera camera = Camera(glm::vec3(123.0f, 1550.5f, 123.9f),
+Camera camera = Camera(glm::vec3(-1723.0f, 3050.5f, -1723.9f),
     glm::vec3(0.0f, 1.0f, 0.0f),
     0.1f, -40.4f);
 
@@ -82,17 +83,21 @@ int run()
     glEnable(GL_DEPTH_TEST);
 
     // std::string heightmapPath = "../3d-terrain-with-lod/data/dom-1028.png";
+    std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
-    std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
-    std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
-    // std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
-    NaiveRenderer naive(heightmapPath, texturePath);
+    //  std::string heightmapPath = "../3d-terrain-with-lod/data/5x5.png";
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
+    // std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
+    // std::string texturePath = "../3d-terrain-with-lod/data/5x5.png";
+    std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
 
-    naive.loadBuffers();
+    Terrain* current = /*new NaiveRenderer(heightmapPath, texturePath);*/ new GeoMipMapping(heightmapPath, texturePath, 65);
 
-    naive.shader->use();
-    naive.shader->setInt("texture1", 0);
+    current->loadBuffers();
+
+    current->shader->use();
+    current->shader->setInt("texture1", 0);
 
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
@@ -100,6 +105,7 @@ int run()
         lastFrame = currentFrame;
 
         processInput();
+
         int wWidth, wHeight;
         glfwGetFramebufferSize(window, &wWidth, &wHeight);
         windowWidth = wWidth;
@@ -116,22 +122,22 @@ int run()
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        naive.shader->use();
+        current->shader->use();
 
         glm::mat4 projection = glm::perspective(glm::radians(camera.getZoom()), (float)windowWidth / (float)windowHeight, 0.1f, 100000.0f);
         glm::mat4 view = camera.getViewMatrix();
         glm::vec2 settings = glm::vec2((float)mode, (float)renderWireframe);
 
-        naive.shader->setVec2("rendersettings", settings);
+        current->shader->setVec2("rendersettings", settings);
 
-        naive.shader->setMat4("projection", projection);
-        naive.shader->setMat4("view", view);
+        current->shader->setMat4("projection", projection);
+        current->shader->setMat4("view", view);
 
-        naive.shader->setFloat("xzScale", 30.0f);
-        naive.shader->setFloat("yScale", 1.0f);
+        current->shader->setFloat("xzScale", current->xzScale);
+        current->shader->setFloat("yScale", current->yScale);
 
         glm::mat4 model = glm::mat4(1.0f);
-        naive.shader->setMat4("model", model);
+        current->shader->setMat4("model", model);
 
         if (renderWireframe) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -139,13 +145,22 @@ int run()
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
-        naive.render();
+        // current->render(camera);
+
+        try {
+            current->render(camera);
+        } catch (std::exception e) {
+            std::cout << "error: " << std::endl;
+            std::cout << e.what() << std::endl;
+            std::exit(1);
+        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-    naive.unloadBuffers();
+    current->unloadBuffers();
     glfwTerminate();
+    delete current;
     return 0;
 }
 
