@@ -1,7 +1,18 @@
 \chapter{Existing Work and Literature}
 \section{Research Articles and Publications}
 Terrain LOD is a well-researched topic and over the last three decades, numerous approaches have been published.
-Some important publications are the following: 
+In the following, some of the most important publications are listed in chronological order.
+The approaches that are described in more detail in chapter ``Algorithms and Approaches for Terrain LOD'' are highlighted in \textbf{bold}:
+\begin{itemize}
+  \item ``Real-Time, Continuous Level of Detail Rendering of Height Fields'' \cite{lindstrom1996} by Lindstrom \textit{et al.} in 1996.
+  \item \textbf{``ROAMing Terrain: Real-time Optimally Adapting Meshes''} \cite{roam} by Duchaineau \textit{et al.} in 1997.
+  \item ``Real-Time Generation of Continuous Levels of Detail for Height Fields'' \cite{rottgerpaper} by Röttger \textit{et al.} in 1998.
+  \item \textbf{``Fast Terrain Rendering Using Geometrical MipMapping''}  \cite{geomipmapping} by de Boer in 2000.
+  \item ``Rendering Massive Terrains using Chunked Level of Detail Control'' \cite{chunkedlod} by Ulrich in 2002.
+  \item ``Geometry Clipmaps: Terrain Rendering Using Nested Regular Grids'' \cite{geomclipmaps} by Hoppe and Losasso in 2004.
+  \item ``Continuous Distance-Dependent Level of Detail for Rendering Heightmaps (CDLOD)'' \cite{cdlod} by Strugar in 2009.
+  \item ``Concurrent Binary Trees (with application to longest edge bisection)'' TODO cite by Dupuy in 2020.
+\end{itemize}
 
 \section{Level of Detail for Computer Graphics}
 \textit{Level of Detail for Computer Graphics} by Luebke \textit{et al.} \cite{lodfor3dgraphics} 
@@ -18,11 +29,7 @@ and a catalog of terrain LOD algorithms.
 \textit{Focus on 3D Terrain Programming} by Trent Polack \cite{focuson3dterrainprogramming} is a book on terrain programming published in 2002.
 Part one of the book introduces the reader to the basics of terrains, such as height maps and texturing. Part two then 
 covers some more advanced topics, including a selection of terrain LOD algorithms. The presented LOD algorithms are
-\begin{itemize}
-  \item ROAM by Duchaineau \textit{et al.} \cite{roam},
-  \item the quadtree-based algorithm described in ``Real-Time Generation of Continuous Levels of Detail for Height Fields'' by Röttger \textit{et al.} \cite{rottgerpaper},
-  \item and GeoMipMapping by de Boer \cite{geomipmapping}.
-\end{itemize}
+ROAM \cite{roam}, Röttger's quadtree-based algorithm \cite{rottgerpaper}, and GeoMipMapping \cite{geomipmapping}.
 The book also includes demo source code in C++ and OpenGL.
 
 \section{Virtual Terrain Project}

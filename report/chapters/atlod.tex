@@ -9,7 +9,7 @@ ATLOD uses the following third-party libraries:
 \begin{itemize}
   \item GLM: The \textit{OpenGL Mathematics (GLM)} library provides functionality for the mathematics of graphics programming, such as classes for vectors, matrices and perspective transformations.
   \item GLEW: The \textit{OpenGL Extension Wranger Library (GLEW)} is an extension loading library for OpenGL. 
-  \item GLFW: 
+  \item GLFW: \textit{GLFW} is a multi-platform library for desktop-based OpenGL applications, offering an API for managing windows, contexts and input handling.
   \item STB: STB is a collection of header-only libraries developed by Sean Barrett TODO cite. ATLOD uses \texttt{stb\_image.h} for loading images of heightmaps and textures.
 \end{itemize}
 
@@ -18,19 +18,55 @@ and is licensed under TODO.
 
 \subsection{Chosen Algorithms}
 The chosen algorithms and their reasons for implementing them are the following:
-\paragraph{Naive brute-force algorithm} The naive brute-force algorithm consists of simply reading in all height values from the heightmap as vertices and rendering them directly to the screen.
+\paragraph{Naive Brute-force Algorithm} The naive brute-force algorithm consists of simply reading in all height values from the heightmap as vertices and rendering them directly to the screen.
 The main reason for implementing the naive brute-force algorithm is to motivate the usage of terrain LOD algorithms by showing the difference in performance
 compared to the optimized LOD approaches.
 
 % TBD, depends on how far I come
-\paragraph{De Boer's GeoMipMapping} The GeoMipMapping
+\paragraph{GeoMipMapping} The main reason for implementing GeoMipMapping is to have at least one CPU-based approach
+as a reference point for comparison with GPU-based approaches.
+In addition, GeoMipMapping is considered to be relatively straightforward to implement \cite[p.~79]{focuson3dterrainprogramming}.
+
 % \paragraph{Hoppe and Lossaso's Geometry Clipmaps} TODO
-% \paragraph{Röttger's Quadtree-based Algorithm} TODO
 % \paragraph{Strugar's CDLOD} TODO
 
-\subsubsection{Algorithms Not Chosen}
-\paragraph{ROAM} Duchaineau's ROAM was not chosen to be implemented due to its CPU-heavy nature, which makes it not suitable
-for today's highly performant GPUs.
+\section{Height Data Loading}
+\subsection{Height Data Sources}
 
-\section{Architecture}
+\subsection{Supported Formats}
+The following file formats are supported for loading heightmaps:
+\begin{itemize}
+  \item \texttt{.png} and \texttt{.jpg}: Heightmaps can be loaded as PNG and JPG images. This is implemented using \texttt{stb\_image.h}.
+  \item \texttt{.asc}: Heightmaps as ASCII grids are supported. Digital elevation data from the Shuttle Radar Topography Mission (SRTM) is delivered in ASCII grid format.
+  \item \texttt{.xyz}: the XYZ format is based on SwissTopo
+\end{itemize}
+
+
+\section{Basic Architecture}
 TODO High-level class diagram
+
+Each terrain LOD algorithm is encapsulated in a class, which inherits from the base terrain class \texttt{Terrain}.
+The base terrain is structured as shown in listing TODO.
+
+\section{Naive Brute-force Algorithm}
+The naive brute-force algorithm, which simply renders every vertex without any LOD considerations, is encapsulated in the class \texttt{NaiveRenderer}.
+
+The method \texttt{loadBuffers()} loads the height data from the heightmap directly into a vertex buffer with the ID \texttt{terrainVBO} and the indices into an index (i.e. element) buffer named \texttt{terrainEBO}.
+The indices are organized such that they can be rendered as triangle strips with \texttt{GL\_TRIANGLE\_STRIPS}.
+Each row is separated using a special marker index named \texttt{RESTART}, which is set to the maximum possible \texttt{GLuint} value and is used for with the \texttt{GL\_PRIMITIVE\_RESTART} mode,
+allowing for the entire terrain to be rendered in one \texttt{glDrawElements()} call. This draw call happens every frame with the 
+method \texttt{render()}. Figure~\ref{fig:naive-triangles} shows the organization of indices for rendering the terrain as triangle strips.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\textwidth]{naive-triangles}
+  \caption{Example of a terrain layout for triangle strips. The looping index \texttt{i} goes from 0 to the terrain height and \texttt{j} from zero to the terrain width. The final indices to be rendered are \texttt{0,3,1,4,2,5,RESTART,3,6,4,7,5,8,RESTART}.}\label{fig:naive-triangles}
+\end{figure}
+
+\section{GeoMipMapping}
+ATLOD's GeoMipMapping implementation is encapsulated in the class \texttt{GeoMipMapping}.
+
+\subsection{LOD Organisation}
+
+\subsection{Avoiding Pops}
+
