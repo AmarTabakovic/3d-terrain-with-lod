@@ -38,8 +38,8 @@ public:
     virtual void loadBuffers() = 0;
     virtual void unloadBuffers() = 0;
     virtual void render(Camera camera) = 0;
-    float xzScale = 15;
-    float yScale = 0.5f;
+    float xzScale = 1;
+    float yScale = 1.0f / 30.0f;
 };
 
 #endif // TERRAIN_H

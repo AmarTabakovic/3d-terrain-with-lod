@@ -69,7 +69,7 @@ public:
     void loadIndices();
     void loadIndexBuffers();
     void loadGeoMipMapsForBlock(GeoMipMappingBlock& block);
-    unsigned int loadBorderConfigurationsForGeoMipMap(GeoMipMappingBlock& block, unsigned int lod, unsigned int startIndex, int accumulate);
+    unsigned int loadBorderConfigurationsForGeoMipMap(GeoMipMappingBlock& block, unsigned int lod, unsigned int startIndex, unsigned int accumulatedS);
     unsigned int createIndicesForConfig(GeoMipMappingBlock& block, unsigned int configBitmap, unsigned int lod, unsigned int startIndex);
     unsigned int determineLod(float distance);
 

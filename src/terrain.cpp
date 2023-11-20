@@ -212,6 +212,7 @@ void Terrain::loadTexture(std::string& fileName)
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
         std::cout << "Failed to load texture" << std::endl;
+        exit(1);
     }
     stbi_image_free(data);
 

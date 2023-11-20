@@ -85,7 +85,6 @@ int run()
 
     glEnable(GL_DEPTH_TEST);
 
-    // std::string heightmapPath = "../3d-terrain-with-lod/data/dom-1028.png";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
@@ -96,8 +95,8 @@ int run()
     // std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
 
     std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-2.png";
-    // std::string texturePath = "../3d-terrain-with-lod/data/5x5.png";
-    // std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
+    //   std::string texturePath = "../3d-terrain-with-lod/data/5x5.png";
+    //   std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
 
     naiveRenderer = new NaiveRenderer(heightmapPath, texturePath);
     naiveRenderer->loadBuffers();
@@ -105,13 +104,13 @@ int run()
     naiveRenderer->shader->use();
     naiveRenderer->shader->setInt("texture1", 0);
 
-    geoMipMapping = new GeoMipMapping(heightmapPath, texturePath, 129);
+    geoMipMapping = new GeoMipMapping(heightmapPath, texturePath, 65);
     geoMipMapping->loadBuffers();
 
     geoMipMapping->shader->use();
     geoMipMapping->shader->setInt("texture1", 0);
 
-    current = naiveRenderer;
+    current = geoMipMapping; // naiveRenderer;
 
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
@@ -162,6 +161,7 @@ int run()
 
         // current->render(camera);
 
+        // glViewport(0, 0, windowWidth, windowHeight);
         try {
             current->render(camera);
         } catch (std::exception e) {
@@ -169,6 +169,9 @@ int run()
             std::cout << e.what() << std::endl;
             std::exit(1);
         }
+
+        /*glViewport(100, 0, 100, 100);
+        current->render(camera);*/
 
         glfwSwapBuffers(window);
         glfwPollEvents();
