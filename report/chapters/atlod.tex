@@ -30,8 +30,11 @@ In addition, GeoMipMapping is considered to be relatively straightforward to imp
 % \paragraph{Hoppe and Lossaso's Geometry Clipmaps} TODO
 % \paragraph{Strugar's CDLOD} TODO
 
-\section{Height Data Loading}
-\subsection{Height Data Sources}
+\section{Height and Texture Data}
+\subsection{Data Sources}
+\subsubsection{SwissTopo}
+
+\subsubsection{SRTM}
 
 \subsection{Supported Formats}
 The following file formats are supported for loading heightmaps:
@@ -42,9 +45,16 @@ The following file formats are supported for loading heightmaps:
 \end{itemize}
 
 
-\section{Basic Architecture}
+\section{Basic Setup and Architecture}
+\subsection{Overview}
 TODO High-level class diagram
+\subsection{Shaders}
 
+\subsection{Camera}
+
+\subsection{Heightmap}
+
+\subsection{Terrain}
 Each terrain LOD algorithm is encapsulated in a class, which inherits from the base terrain class \texttt{Terrain}.
 The base terrain is structured as shown in listing TODO.
 
@@ -53,20 +63,23 @@ The naive brute-force algorithm, which simply renders every vertex without any L
 
 The method \texttt{loadBuffers()} loads the height data from the heightmap directly into a vertex buffer with the ID \texttt{terrainVBO} and the indices into an index (i.e. element) buffer named \texttt{terrainEBO}.
 The indices are organized such that they can be rendered as triangle strips with \texttt{GL\_TRIANGLE\_STRIPS}.
-Each row is separated using a special marker index named \texttt{RESTART}, which is set to the maximum possible \texttt{GLuint} value and is used for with the \texttt{GL\_PRIMITIVE\_RESTART} mode,
-allowing for the entire terrain to be rendered in one \texttt{glDrawElements()} call. This draw call happens every frame with the 
+Each row is separated using a special marker index named \texttt{RESTART}, which is set to the maximum possible \texttt{GLuint} value and is used for the \texttt{GL\_PRIMITIVE\_RESTART} mode,
+allowing for the entire terrain to be rendered in a single \texttt{glDrawElements()} call. This draw call happens every frame in the 
 method \texttt{render()}. Figure~\ref{fig:naive-triangles} shows the organization of indices for rendering the terrain as triangle strips.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.9\textwidth]{naive-triangles}
-  \caption{Example of a terrain layout for triangle strips. The looping index \texttt{i} goes from 0 to the terrain height and \texttt{j} from zero to the terrain width. The final indices to be rendered are \texttt{0,3,1,4,2,5,RESTART,3,6,4,7,5,8,RESTART}.}\label{fig:naive-triangles}
+  \caption{Example of a terrain layout for triangle strips. The looping index \texttt{i} goes from 0 to the terrain height and \texttt{j} from 0 to the terrain width. The final indices to be rendered are \texttt{0,3,1,4,2,5,RESTART,3,6,4,7,5,8,RESTART}.}\label{fig:naive-triangles}
 \end{figure}
 
 \section{GeoMipMapping}
 ATLOD's GeoMipMapping implementation is encapsulated in the class \texttt{GeoMipMapping}.
 
-\subsection{LOD Organisation}
+\subsection{Data Structures}
+
+\subsection{Vertex and Index Organisation}
+Vertices are loaded into the vertex buffer with the method \texttt{loadBuffers()}.
 
 \subsection{Avoiding Pops}
 

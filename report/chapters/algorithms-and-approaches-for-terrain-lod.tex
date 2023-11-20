@@ -155,7 +155,7 @@ At load time, every block is computed at every LOD level and subsequently stored
 Each such representation of a block at a specific LOD level is called a \textit{GeoMipMap}.
 For each GeoMipMap, the number of vertices on one side is $2^{l}+1$ and the number of quads is $2^{2l}$.
 
-For example, a $5 \times 5$ terrain block contains $2^2 + 1 = 5$ vertices on one side at the maximum LOD level 2, $2^1 + 1 = 3$ vertices at LOD level 1 and $2^0 + 1 = 2$ vertices at the minimum LOD level 0.
+For example, the GeoMipMaps of a $5 \times 5$ terrain block contain $2^2 + 1 = 5$ vertices on one side at the maximum LOD level 2, $2^1 + 1 = 3$ vertices at LOD level 1 and $2^0 + 1 = 2$ vertices at the minimum LOD level 0.
 As for the number of quads, at LOD level 2 there are $2^{4} = 16$ quads, at LOD level 1 there are $2^2 = 4$ quads and at LOD level 0 there is $2^0 = 1$ quad.
 Figure~\ref{fig:geomipmapping-patch-example} illustrates the above example.
 
@@ -175,23 +175,46 @@ Figure~\ref{fig:geomipmapping-patch-example} illustrates the above example.
   \caption{Example of each GeoMipMap of a $5 \times 5$ block. The omitted vertices of lower LOD GeoMipMaps are marked as dotted circles.}\label{fig:geomipmapping-patch-example}
 \end{figure}
 
+\subsection{LOD Selection}
+The LOD for each block is selected at runtime and is based on a 
+
 \subsection{Avoiding Cracks}
-GeoMipMapping avoids cracks in the terrain by first checking whether the
-current block has a higher LOD than the bordering block.
-If this is the case, then the edge that causes the crack 
-needs to not get drawn. This is done by rendering the border area between two blocks
+
+GeoMipMapping avoids cracks by checking whether the
+current block has a higher LOD than the bordering block and if this is the case,
+it omits the vertices that would cause the crack.
+
+In the original GeoMipMapping paper,
+the vertex omission is performed by rendering the bordering row/column of the current block
 as triangle fans, as shown in figure~\ref{fig:geomipmapping-crack-avoidance}.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.7\textwidth]{geomipmapping-crack-avoidance}
-  \caption{Example of GeoMipMapping's crack avoidance between a LOD 2 and a LOD 1 GeoMipMap of two $5 \times 5$ blocks.}\label{fig:geomipmapping-crack-avoidance}
+  \caption{Example of GeoMipMapping's crack avoidance between a LOD 2 and a LOD 1 GeoMipMap of two $5 \times 5$ blocks as described in the original paper.}\label{fig:geomipmapping-crack-avoidance}
 \end{figure}
 
-This means that the LOD levels of the neighboring blocks need to be stored in a structure on each block.
-This structure is updated continually at runtime.
+An alternative way to render neighboring blocks with different LOD levels is to render the triangle fans from the center point of each $3 \times 3$ border subblock. 
+This approach is somewhat simpler for handling special cases, e.g. when both the top and right neighboring blocks have a lower LOD,
+as shown shown in figure~\ref{fig:geomipmapping-crack-avoidance-alternative}.
 
-\subsection{LOD Selection}
+%\begin{figure}[H]
+%  \centering
+%  \includegraphics[width=0.5\textwidth]{geomipmapping-crack-avoidance-alternative}
+%  \caption{Alternative method to avoid cracks between a LOD 2 and a LOD 1 GeoMipMap of two $5 \times 5$ blocks.}\label{fig:geomipmapping-crack-avoidance-alternative}
+%\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \subfloat[\centering Using the entire $3\times 3$ border subblocks for the triangle fans.]{{\includegraphics[width=0.45\textwidth]{geomipmapping-crack-avoidance-alternative-1} }}
+  \qquad
+  \subfloat[\centering Using only the top-most $2\times3$ subblocks and the right-most $3\times2$ subblocks for the triangle fans.]{{\includegraphics[width=0.45\textwidth]{geomipmapping-crack-avoidance-alternative-2} }}
+  \caption{Two alternative triangle fan-based methods to avoid cracks between a LOD 2 and two LOD 1 GeoMipMaps of three $5 \times 5$ blocks. The border subblocks are marked in red.}\label{fig:geomipmapping-crack-avoidance-alternative}
+\end{figure}
+
+Regardless of the rendering approach, a neighborhood structure consisting of the LOD levels of the left, right, top and bottom 
+neighboring blocks needs to be stored per block, so that the algorithm knows how to perform the vertex omission. The LOD levels of each block change continually each frame, which means 
+that the neighborhood structure of each block also gets updated each frame.
 
 \subsection{Other Optimizations}
 \paragraph{Vertex Morphing}
