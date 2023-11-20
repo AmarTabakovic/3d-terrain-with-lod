@@ -13,6 +13,8 @@ NaiveRenderer::NaiveRenderer(std::string& heightmapFileName, std::string& textur
     shader = new Shader("../3d-terrain-with-lod/src/glsl/naiverenderer.vert", "../3d-terrain-with-lod/src/glsl/naiverenderer.frag");
     loadHeightmap(heightmapFileName);
     loadTexture(textureFileName);
+    this->height = heightmap->height;
+    this->width = heightmap->width;
 }
 
 /**
@@ -53,23 +55,23 @@ void NaiveRenderer::render(Camera camera)
  */
 void NaiveRenderer::loadBuffers()
 {
-    int height = heightmap->height;
-    int width = heightmap->width;
 
+    int signedWidth = (int)width;
+    int signedHeight = (int)height;
     /* Set up vertex buffer */
     for (unsigned int i = 0; i < height; i++) {
         for (unsigned int j = 0; j < width; j++) {
 
-            float y = heightmap->at(j, i) * yScale;
-            float x = (-height / 2.0f + height * i / (float)height);
-            float z = (-width / 2.0f + width * j / (float)width);
+            float y = heightmap->at(j, i);
+            float x = (-signedWidth / 2.0f + signedWidth * j / (float)signedWidth);
+            float z = (-signedHeight / 2.0f + signedHeight * i / (float)signedHeight);
 
             /* Render vertices around center point */
             vertices.push_back(x); /* vertex x */
             vertices.push_back(y); /* vertex y */
             vertices.push_back(z); /* vertex z */
-            vertices.push_back((float)j / (float)width); /* texture x */
-            vertices.push_back((float)i / (float)height); /* texture y */
+            vertices.push_back((float)j / (float)signedWidth); /* texture x */
+            vertices.push_back((float)i / (float)signedHeight); /* texture y */
         }
     }
 

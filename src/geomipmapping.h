@@ -14,6 +14,8 @@ public:
 
     /* Each index buffer is for a border bitmap */
     std::vector<unsigned int> bufferSizes;
+
+    /* TODO: Store index buffers contiguously in GeoMipMappingBlock instead*/
     std::vector<unsigned int> indexBuffers;
 };
 

@@ -31,13 +31,15 @@ public:
     // TODO these two can probably be non-pointers
     Heightmap* heightmap;
     Shader* shader;
+    unsigned int width;
+    unsigned int height;
     unsigned int textureId;
     unsigned int terrainVAO, terrainVBO, terrainEBO;
     virtual void loadBuffers() = 0;
     virtual void unloadBuffers() = 0;
     virtual void render(Camera camera) = 0;
-    float xzScale = 5;
-    float yScale = 1;
+    float xzScale = 15;
+    float yScale = 0.5f;
 };
 
 #endif // TERRAIN_H

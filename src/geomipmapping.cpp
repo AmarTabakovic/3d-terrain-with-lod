@@ -21,21 +21,15 @@ GeoMipMapping::GeoMipMapping(std::string& heightmapFileName, std::string& textur
     loadHeightmap(heightmapFileName);
     loadTexture(textureFileName);
 
-    unsigned int height = heightmap->height;
-    unsigned int width = heightmap->width;
-
     /* Determine number of patches on x and z sides */
-    nBlocksX = (unsigned int)std::floor((double)(width - 1) / (double)(blockSize - 1));
-    nBlocksZ = (unsigned int)std::floor((double)(height - 1) / (double)(blockSize - 1));
+    nBlocksX = (unsigned int)std::floor((double)(heightmap->width) / (double)(blockSize - 1));
+    nBlocksZ = (unsigned int)std::floor((double)(heightmap->height) / (double)(blockSize - 1));
+
+    this->width = nBlocksX * (blockSize - 1) + 1;
+    this->height = nBlocksZ * (blockSize - 1) + 1;
 
     /* Calculate maximum LOD level */
-    unsigned int divisor = blockSize - 1;
-    maxLod = 0;
-    while (divisor > 2) {
-        divisor = divisor >> 1;
-        maxLod++;
-    }
-    // maxLod++; /* TODO: is this needed? */
+    maxLod = std::log2(blockSize - 1);
 
     std::cout << "blockSize: " << blockSize << std::endl
               << "nBlocksX: " << nBlocksX << std::endl
@@ -46,7 +40,7 @@ GeoMipMapping::GeoMipMapping(std::string& heightmapFileName, std::string& textur
         for (unsigned int j = 0; j < nBlocksX; j++) {
             /* Initialize every block to have the minimum LOD. TODO: find a better way to determine a starting index */
             unsigned int currentBlock = i * nBlocksX + j;
-            unsigned int startIndex = i * ((blockSize - 1) * nBlocksX + 1) * (blockSize - 1) + (j * (blockSize - 1));
+            unsigned int startIndex = i * width * (blockSize - 1) + (j * (blockSize - 1));
             blocks.push_back(GeoMipMappingBlock(currentBlock, startIndex));
         }
     }
@@ -80,8 +74,8 @@ void GeoMipMapping::render(Camera camera)
     glEnable(GL_PRIMITIVE_RESTART);
     glPrimitiveRestartIndex(RESTART);
 
-    int height = nBlocksZ * (blockSize - 1) + 1;
-    int width = nBlocksX * (blockSize - 1) + 1;
+    int signedHeight = (int)height; // nBlocksZ * (blockSize - 1) + 1;
+    int signedWidth = (int)width; // nBlocksX * (blockSize - 1) + 1;
 
     glm::vec3 cameraPosition = camera.getPosition();
 
@@ -93,11 +87,10 @@ void GeoMipMapping::render(Camera camera)
      */
     for (unsigned int i = 0; i < nBlocksZ; i++) {
         for (unsigned int j = 0; j < nBlocksX; j++) {
-            unsigned int x = (j * (blockSize - 1) + 0.5 * (blockSize - 1));
-            unsigned int z = (i * (blockSize - 1) + 0.5 * (blockSize - 1));
+            float x = (j * (blockSize - 1) + 0.5 * (blockSize - 1));
+            float z = (i * (blockSize - 1) + 0.5 * (blockSize - 1));
             float y = heightmap->at(x, z);
-
-            glm::vec3 blockCenter((-width / 2 + x) * xzScale, y * yScale, (-height / 2 + z) * xzScale);
+            glm::vec3 blockCenter(((-signedWidth * xzScale) / 2) + x * xzScale, y * yScale, ((-signedHeight * xzScale) / 2) + z * xzScale);
 
             float distance = glm::distance(cameraPosition, blockCenter);
 
@@ -146,18 +139,22 @@ unsigned int GeoMipMapping::determineLod(float distance)
      * Naive LOD determination taken from "Focus on Terrain Programming"
      * TODO: Implement proper LOD determination
      */
-    if (distance < 200) {
+    if (distance < 1000) {
         return maxLod;
-    } else if (distance < 600) {
+    } else if (distance < 1750) {
         return maxLod - 1;
-    } else if (distance < 1000) {
+    } else if (distance < 2500) {
         return maxLod - 2;
-    } else if (distance < 1400) {
+    } else if (distance < 3250) {
         return maxLod - 3;
-    } else if (distance < 1800) {
+    } else if (distance < 4000) {
         return maxLod - 4;
-    } else
+    } else if (distance < 4750) {
         return maxLod - 5;
+    } else if (distance < 5500) {
+        return maxLod - 6;
+    } else
+        return maxLod - 7;
 }
 
 /**
@@ -170,23 +167,24 @@ unsigned int GeoMipMapping::determineLod(float distance)
 void GeoMipMapping::loadBuffers()
 {
     /* Need to be int apparently, not unsigned */
-    int height = nBlocksZ * (blockSize - 1) + 1;
-    int width = nBlocksX * (blockSize - 1) + 1;
+    int signedHeight = (int)height;
+    int signedWidth = (int)width;
 
     /* Set up vertex buffer */
     for (unsigned int i = 0; i < height; i++) {
         for (unsigned int j = 0; j < width; j++) {
 
             float y = heightmap->at(j, i);
-            float x = (-width / 2.0f + width * j / (float)width);
-            float z = (-height / 2.0f + height * i / (float)height);
 
-            /* Render vertices around center point */
+            /* Load vertices around center point */
+            float x = (-signedWidth / 2.0f + signedWidth * j / (float)signedWidth);
+            float z = (-signedHeight / 2.0f + signedHeight * i / (float)signedHeight);
+
             vertices.push_back(x); /* vertex x */
             vertices.push_back(y); /* vertex y */
             vertices.push_back(z); /* vertex z */
-            vertices.push_back((float)j / (float)width); /* texture x */
-            vertices.push_back((float)i / (float)height); /* texture y */
+            vertices.push_back((float)j / (float)heightmap->width); /* texture x */
+            vertices.push_back((float)i / (float)heightmap->height); /* texture y */
         }
     }
 
@@ -258,8 +256,8 @@ std::vector<unsigned int> GeoMipMapping::createIndicesForConfig(unsigned int con
     /* For now only do normal cracked blocks, just for testing */
     for (unsigned int i = 0; i < blockSize - 1; i += step) {
         for (unsigned int j = 0; j < blockSize; j += step) {
-            configIndices.push_back(i * ((blockSize - 1) * nBlocksX + 1) + startIndex + j);
-            configIndices.push_back((i + 1 * step) * ((blockSize - 1) * nBlocksX + 1) + startIndex + j);
+            configIndices.push_back(i * width + startIndex + j);
+            configIndices.push_back((i + 1 * step) * width + startIndex + j);
         }
         configIndices.push_back(RESTART);
     }

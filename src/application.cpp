@@ -1,4 +1,3 @@
-
 #include "application.h"
 
 #include "geomipmapping.h"
@@ -33,6 +32,10 @@ GLFWwindow* window;
 bool renderWireframe = false;
 
 ColorMode mode = DARK;
+
+Terrain* naiveRenderer;
+Terrain* geoMipMapping;
+Terrain* current;
 
 Camera camera = Camera(glm::vec3(-1723.0f, 3050.5f, -1723.9f),
     glm::vec3(0.0f, 1.0f, 0.0f),
@@ -83,21 +86,32 @@ int run()
     glEnable(GL_DEPTH_TEST);
 
     // std::string heightmapPath = "../3d-terrain-with-lod/data/dom-1028.png";
-    std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
     //  std::string heightmapPath = "../3d-terrain-with-lod/data/5x5.png";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
+    std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-2.asc";
+
     // std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
+
+    std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-2.png";
     // std::string texturePath = "../3d-terrain-with-lod/data/5x5.png";
-    std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
+    // std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
 
-    Terrain* current = /*new NaiveRenderer(heightmapPath, texturePath);*/ new GeoMipMapping(heightmapPath, texturePath, 65);
+    naiveRenderer = new NaiveRenderer(heightmapPath, texturePath);
+    naiveRenderer->loadBuffers();
 
-    current->loadBuffers();
+    naiveRenderer->shader->use();
+    naiveRenderer->shader->setInt("texture1", 0);
 
-    current->shader->use();
-    current->shader->setInt("texture1", 0);
+    geoMipMapping = new GeoMipMapping(heightmapPath, texturePath, 129);
+    geoMipMapping->loadBuffers();
+
+    geoMipMapping->shader->use();
+    geoMipMapping->shader->setInt("texture1", 0);
+
+    current = naiveRenderer;
 
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
@@ -133,6 +147,7 @@ int run()
         current->shader->setMat4("projection", projection);
         current->shader->setMat4("view", view);
 
+        // TODO set these values in model matrix
         current->shader->setFloat("xzScale", current->xzScale);
         current->shader->setFloat("yScale", current->yScale);
 
@@ -160,7 +175,8 @@ int run()
     }
     current->unloadBuffers();
     glfwTerminate();
-    delete current;
+    delete geoMipMapping;
+    delete naiveRenderer;
     return 0;
 }
 
@@ -208,9 +224,12 @@ void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action
             break;
         case GLFW_KEY_M:
             mode = mode == DARK ? BRIGHT : DARK;
-
             break;
-        default:
+        case GLFW_KEY_1:
+            current = naiveRenderer;
+            break;
+        case GLFW_KEY_2:
+            current = geoMipMapping;
             break;
         }
     }

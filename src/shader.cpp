@@ -76,6 +76,7 @@ int Shader::loadShaderProgram(const char* path, GLenum type)
     shaderId = glCreateShader(type);
     glShaderSource(shaderId, 1, &shaderCodeCStr, NULL);
     glCompileShader(shaderId);
+    glGetShaderiv(shaderId, GL_COMPILE_STATUS, &success);
 
     /* Check shader compilation errors */
     if (!success) {
