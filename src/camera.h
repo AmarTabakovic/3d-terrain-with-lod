@@ -7,8 +7,8 @@
 
 const float YAW = -90.0f;
 const float PITCH = 0.0f;
-const float SPEED = 75.5f;
-const float SPEED_UP_MULT = 4;
+const float SPEED = 37.5f;
+const float SPEED_UP_MULT = 8;
 const float ZOOM = 45.0f;
 const float LOOK_VELOCITY = 2;
 

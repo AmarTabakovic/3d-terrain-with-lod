@@ -34,11 +34,10 @@ public:
     unsigned int width;
     unsigned int height;
     unsigned int textureId;
-    unsigned int terrainVAO, terrainVBO, terrainEBO;
     virtual void loadBuffers() = 0;
     virtual void unloadBuffers() = 0;
     virtual void render(Camera camera) = 0;
-    float xzScale = 1;
+    float xzScale = 1.0f;
     float yScale = 1.0f / 30.0f;
 };
 

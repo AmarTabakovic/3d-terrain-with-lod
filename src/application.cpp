@@ -37,7 +37,7 @@ Terrain* naiveRenderer;
 Terrain* geoMipMapping;
 Terrain* current;
 
-Camera camera = Camera(glm::vec3(-1723.0f, 3050.5f, -1723.9f),
+Camera camera = Camera(glm::vec3(-723.0f, 1050.5f, -723.9f),
     glm::vec3(0.0f, 1.0f, 0.0f),
     0.1f, -40.4f);
 
@@ -86,17 +86,20 @@ int run()
     glEnable(GL_DEPTH_TEST);
 
     // std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
-    // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
-    // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
+    //    std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
+    //   std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
     //  std::string heightmapPath = "../3d-terrain-with-lod/data/5x5.png";
-    // std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
+    //  std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
+
     std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-2.asc";
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-3.asc";
 
     // std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
 
     std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-2.png";
-    //   std::string texturePath = "../3d-terrain-with-lod/data/5x5.png";
-    //   std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
+    // std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-3.png";
+    // std::string texturePath = "../3d-terrain-with-lod/data/5x5.png";
+    // std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
 
     naiveRenderer = new NaiveRenderer(heightmapPath, texturePath);
     naiveRenderer->loadBuffers();
@@ -104,13 +107,13 @@ int run()
     naiveRenderer->shader->use();
     naiveRenderer->shader->setInt("texture1", 0);
 
-    geoMipMapping = new GeoMipMapping(heightmapPath, texturePath, 65);
+    geoMipMapping = new GeoMipMapping(heightmapPath, texturePath, 65); // 65 works well
     geoMipMapping->loadBuffers();
 
     geoMipMapping->shader->use();
     geoMipMapping->shader->setInt("texture1", 0);
 
-    current = geoMipMapping; // naiveRenderer;
+    current = naiveRenderer; // naiveRenderer;
 
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
@@ -130,7 +133,7 @@ int run()
             else
                 glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         } else {
-            glClearColor(89.0f / 255.0f, 153.0f / 255.0f, 1.0f, 1.0f);
+            glClearColor(203.0f / 255.0f, 228.0f / 255.0f, 242.0f / 255.0f, 1.0f);
         }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

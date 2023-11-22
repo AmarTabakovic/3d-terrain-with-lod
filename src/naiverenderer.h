@@ -18,16 +18,7 @@ class NaiveRenderer : public Terrain {
 public:
     NaiveRenderer(std::string& heightmapFileName, std::string& textureFileName);
     ~NaiveRenderer();
-
-    // Shader* shader;
-
-    // void loadTexture(std::string& fileName);
-
-    // void loadHeightmap(std::string& fileName);
-    // Heightmap* heightmap;
-
-    // unsigned int terrainVAO, terrainVBO, terrainEBO;
-    // unsigned int texture;
+    unsigned int terrainVAO, terrainVBO, terrainEBO;
 
     void loadBuffers();
     void render(Camera camera);
