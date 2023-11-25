@@ -74,12 +74,49 @@ method \texttt{render()}. Figure~\ref{fig:naive-triangles} shows the organizatio
 \end{figure}
 
 \section{GeoMipMapping}
-ATLOD's GeoMipMapping implementation is encapsulated in the class \texttt{GeoMipMapping}.
+ATLOD's GeoMipMapping implementation is encapsulated in the class \texttt{GeoMipMapping} and differs a bit from the 
+original paper. Instead of drawing vertices directly in immediate mode and by loading each vertex manually with \texttt{glVertex},
+this implementation uses vertex buffers and index buffers for rendering. 
 
 \subsection{Data Structures}
 
 \subsection{Vertex and Index Organisation}
-Vertices are loaded into the vertex buffer with the method \texttt{loadBuffers()}.
+Vertices are loaded into the vertex buffer in the method \texttt{loadBuffers()}. 
 
 \subsection{Avoiding Pops}
+\begin{figure}[H]
+  \centering
+  \subfloat[\centering \texttt{0000}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-0000.png} }}
+  \qquad
+  \subfloat[\centering \texttt{0001}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-0001.png} }}
+  \qquad
+  \subfloat[\centering \texttt{0010}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-0010.png} }}
+  \qquad
+  \subfloat[\centering \texttt{0011}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-0011.png} }}
+
+  \subfloat[\centering \texttt{0100}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-0100.png} }}
+  \qquad
+  \subfloat[\centering \texttt{0101}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-0101.png} }}
+  \qquad
+  \subfloat[\centering \texttt{0110}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-0110.png} }}
+  \qquad
+  \subfloat[\centering \texttt{0111}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-0111.png} }}
+
+  \subfloat[\centering \texttt{1000}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-1000.png} }}
+  \qquad
+  \subfloat[\centering \texttt{1001}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-1001.png} }}
+  \qquad
+  \subfloat[\centering \texttt{1010}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-1010.png} }}
+  \qquad
+  \subfloat[\centering \texttt{1011}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-1011.png} }}
+
+  \subfloat[\centering \texttt{1100}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-1100.png} }}
+  \qquad
+  \subfloat[\centering \texttt{1101}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-1101.png} }}
+  \qquad
+  \subfloat[\centering \texttt{1110}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-1110.png} }}
+  \qquad
+  \subfloat[\centering \texttt{1111}.]{{\includegraphics[width=0.17\textwidth]{atlod-geomipmapping-1111.png} }}
+  \caption{Every possible border subblock configuration for a LOD 2 GeoMipMap of a $5 \times 5$ block. The bits (read from left to right) represent the left, right, top and bottom borders and are set to 1 if the bordering block on the corresponding side has a lower LOD, and 0 otherwise. The center subblocks have been omitted from the illustration.}\label{fig:atlod-geomipmapping-popping-avoidance}
+\end{figure}
 

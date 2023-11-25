@@ -1,4 +1,5 @@
 #include "naiverenderer.h"
+#include "atlodutil.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -33,7 +34,7 @@ NaiveRenderer::~NaiveRenderer()
 void NaiveRenderer::render(Camera camera)
 {
     glEnable(GL_PRIMITIVE_RESTART);
-    glPrimitiveRestartIndex(RESTART);
+    glPrimitiveRestartIndex(RESTART_INDEX);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureId);
@@ -46,6 +47,8 @@ void NaiveRenderer::render(Camera camera)
         std::cout << "Error " << std::endl;
         std::exit(-1);
     }
+
+    AtlodUtil::checkGlError("Naive algorithm render failed");
 }
 
 /**
@@ -81,7 +84,7 @@ void NaiveRenderer::loadBuffers()
             indices.push_back(j + width * i);
             indices.push_back(j + width * (i + 1));
         }
-        indices.push_back(RESTART);
+        indices.push_back(RESTART_INDEX);
     }
 
     glGenVertexArrays(1, &terrainVAO);
@@ -103,10 +106,7 @@ void NaiveRenderer::loadBuffers()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrainEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
 
-    GLenum error = glGetError();
-    if (error != 0) {
-        std::cout << "Error " << std::endl;
-    }
+    AtlodUtil::checkGlError("Naive algorithm load failed");
 }
 
 /**
@@ -118,4 +118,5 @@ void NaiveRenderer::unloadBuffers()
     glDeleteVertexArrays(1, &terrainVAO);
     glDeleteBuffers(1, &terrainVBO);
     glDeleteBuffers(1, &terrainEBO);
+    AtlodUtil::checkGlError("Naive algorithm unload failed");
 }

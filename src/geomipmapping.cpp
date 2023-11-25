@@ -1,4 +1,5 @@
 #include "geomipmapping.h"
+#include "atlodutil.h"
 
 #include <algorithm>
 #include <cmath>
@@ -19,21 +20,21 @@ GeoMipMapping::GeoMipMapping(std::string& heightmapFileName, std::string& textur
     std::cout << "Initialize GeoMipMapping" << std::endl;
 
     this->blockSize = blockSize;
-    shader = new Shader("../3d-terrain-with-lod/src/glsl/geomipmapping.vert", "../3d-terrain-with-lod/src/glsl/geomipmapping.frag");
+    this->shader = new Shader("../3d-terrain-with-lod/src/glsl/geomipmapping.vert", "../3d-terrain-with-lod/src/glsl/geomipmapping.frag");
     loadHeightmap(heightmapFileName);
     loadTexture(textureFileName);
 
     /* Determine number of patches on x and z sides
      * TODO: This casting and flooring is probably not required...
      */
-    nBlocksX = (unsigned int)std::floor((double)(heightmap->width - 1) / (double)(blockSize - 1));
-    nBlocksZ = (unsigned int)std::floor((double)(heightmap->height - 1) / (double)(blockSize - 1));
+    this->nBlocksX = std::floor((heightmap->width - 1) / (blockSize - 1));
+    this->nBlocksZ = std::floor((heightmap->height - 1) / (blockSize - 1));
 
     this->width = nBlocksX * (blockSize - 1) + 1;
     this->height = nBlocksZ * (blockSize - 1) + 1;
 
     /* Calculate maximum LOD level */
-    maxLod = std::log2(blockSize - 1);
+    this->maxLod = std::log2(blockSize - 1);
 
     std::cout << "blockSize: " << blockSize << std::endl
               << "nBlocksX: " << nBlocksX << std::endl
@@ -42,10 +43,9 @@ GeoMipMapping::GeoMipMapping(std::string& heightmapFileName, std::string& textur
 
     for (unsigned int i = 0; i < nBlocksZ; i++) {
         for (unsigned int j = 0; j < nBlocksX; j++) {
-            /* Initialize every block to have the minimum LOD. TODO: find a better way to determine a starting index */
             unsigned int currentBlock = i * nBlocksX + j;
             unsigned int startIndex = i * width * (blockSize - 1) + (j * (blockSize - 1));
-            blocks.push_back(GeoMipMappingBlock(currentBlock, startIndex));
+            this->blocks.push_back(GeoMipMappingBlock(currentBlock, startIndex));
         }
     }
 }
@@ -65,9 +65,50 @@ GeoMipMappingBlock::GeoMipMappingBlock(unsigned int blockId, unsigned int startI
  */
 GeoMipMapping::~GeoMipMapping()
 {
-    delete shader;
-    delete heightmap;
+    delete this->shader;
+    delete this->heightmap;
     std::cout << "GeoMipMapping terrain destroyed" << std::endl;
+}
+
+/**
+ * @brief GeoMipMapping::calculateBorderBitmap
+ * @param currentBlockId
+ * @param x
+ * @param y
+ * @return
+ */
+unsigned int GeoMipMapping::calculateBorderBitmap(unsigned int currentBlockId, unsigned int x, unsigned int z)
+{
+    unsigned int currentLod = blocks[currentBlockId].currentLod;
+
+    GeoMipMappingBlock& leftBlock = getBlock(std::max((int)(x)-1, 0), z);
+    GeoMipMappingBlock& rightBlock = getBlock(std::min((int)(x) + 1, (int)nBlocksX - 1), z);
+    GeoMipMappingBlock& topBlock = getBlock(x, std::max((int)(z)-1, 0));
+    GeoMipMappingBlock& bottomBlock = getBlock(x, std::min((int)(z) + 1, (int)nBlocksZ - 1));
+
+    unsigned int leftLower = currentLod > leftBlock.currentLod ? 1 : 0;
+    unsigned int rightLower = currentLod > rightBlock.currentLod ? 1 : 0;
+    unsigned int topLower = currentLod > topBlock.currentLod ? 1 : 0;
+    unsigned int bottomLower = currentLod > bottomBlock.currentLod ? 1 : 0;
+
+    unsigned int bitmask = (leftLower << 3) | (rightLower << 2) | (topLower << 1) | bottomLower;
+
+    // std::cout << bitmask << std::endl;
+    return bitmask;
+}
+
+/**
+ * @brief GeoMipMapping::getBlock
+ *
+ * TODO: Error handling
+ *
+ * @param x
+ * @param y
+ * @return
+ */
+GeoMipMappingBlock& GeoMipMapping::getBlock(unsigned int x, unsigned int z)
+{
+    return blocks[z * nBlocksX + x];
 }
 
 /**
@@ -76,16 +117,16 @@ GeoMipMapping::~GeoMipMapping()
 void GeoMipMapping::render(Camera camera)
 {
     glEnable(GL_PRIMITIVE_RESTART);
-    glPrimitiveRestartIndex(RESTART);
+    glPrimitiveRestartIndex(RESTART_INDEX);
 
-    int signedHeight = (int)height; // nBlocksZ * (blockSize - 1) + 1;
-    int signedWidth = (int)width; // nBlocksX * (blockSize - 1) + 1;
+    int signedHeight = (int)height;
+    int signedWidth = (int)width;
 
     glm::vec3 cameraPosition = camera.getPosition();
 
     /*
      * First pass: for each block:
-     *  - Check and update distance to camera
+     *  - Check and update the distance to camera
      *  - Update the LOD level
      *  - Update the neighborhood border bitmap
      */
@@ -98,11 +139,12 @@ void GeoMipMapping::render(Camera camera)
 
             float distance = glm::distance(cameraPosition, blockCenter);
 
-            unsigned int currBlock = i * nBlocksX + j;
+            // unsigned int currBlock = i * nBlocksX + j;
+            GeoMipMappingBlock& block = getBlock(j, i);
 
-            blocks[currBlock].distance = distance;
-            blocks[currBlock].currentLod = determineLod(distance);
-            blocks[currBlock].currentBorderBitmap = 0; // TODO Actually update
+            block.distance = distance;
+            block.currentLod = determineLod(distance);
+            block.currentBorderBitmap = calculateBorderBitmap(block.blockId, j, i);
         }
     }
 
@@ -113,27 +155,32 @@ void GeoMipMapping::render(Camera camera)
 
     /*
      * Second pass: render each block
+     *
+     * TODO: Update and render everything in one pass instead?
      */
     for (unsigned int i = 0; i < nBlocksZ; i++) {
         for (unsigned int j = 0; j < nBlocksX; j++) {
-            unsigned int currBlock = i * nBlocksX + j;
+            // unsigned int currBlock = i * nBlocksX + j;
 
-            unsigned int currentLod = blocks[currBlock].currentLod;
-            unsigned int currentBorderBitmap = blocks[currBlock].currentBorderBitmap;
+            GeoMipMappingBlock& block = getBlock(j, i);
 
-            unsigned int currentIndex1 = currentLod;
+            unsigned int currentLod = block.currentLod;
+            unsigned int currentBorderBitmap = block.currentBorderBitmap;
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, blocks[currBlock].ebo);
+            unsigned int currentIndex = currentLod;
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, block.ebo);
 
             /* First draw center subblocks */
-            glDrawElements(GL_TRIANGLE_STRIP, blocks[currBlock].centerSizes[currentIndex1], GL_UNSIGNED_INT, (void*)(blocks[currBlock].centerStarts[currentIndex1] * sizeof(unsigned int)));
+            glDrawElements(GL_TRIANGLE_STRIP, block.centerSizes[currentIndex], GL_UNSIGNED_INT, (void*)(block.centerStarts[currentIndex] * sizeof(unsigned int)));
+
+            /* Then render border subblocks */
+            currentIndex = currentLod * 16 + currentBorderBitmap;
+            glDrawElements(GL_TRIANGLE_STRIP, block.borderSizes[currentIndex], GL_UNSIGNED_INT, (void*)(block.borderStarts[currentIndex] * sizeof(unsigned int)));
         }
     }
 
-    GLenum error = glGetError();
-    if (error != 0) {
-        std::cout << "Error after new index buffer loading: " << error << std::endl;
-    }
+    AtlodUtil::checkGlError("GeoMipMapping render failed");
 }
 
 /**
@@ -147,17 +194,17 @@ unsigned int GeoMipMapping::determineLod(float distance)
      * Naive LOD determination taken from "Focus on Terrain Programming"
      * TODO: Implement proper LOD determination
      */
-    if (distance < 500) {
+    if (distance < 100) {
         return maxLod;
-    } else if (distance < 1000) {
+    } else if (distance < 200) {
         return maxLod - 1;
-    } else if (distance < 1500) {
+    } else if (distance < 300) {
         return maxLod - 2;
-    } else if (distance < 2000) {
+    } else if (distance < 400) {
         return maxLod - 3;
-    } else if (distance < 2500) {
+    } else if (distance < 500) {
         return maxLod - 4;
-    } else if (distance < 3000) {
+    } else if (distance < 600) {
         return maxLod - 5;
     } else
         return maxLod - 6;
@@ -209,12 +256,9 @@ void GeoMipMapping::loadBuffers()
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    loadIndexBuffers();
+    loadIndices();
 
-    GLenum error = glGetError();
-    if (error != 0) {
-        std::cout << "Error " << std::endl;
-    }
+    AtlodUtil::checkGlError("GeoMipMapping load failed");
 }
 
 /**
@@ -223,21 +267,25 @@ void GeoMipMapping::loadBuffers()
  */
 void GeoMipMapping::loadGeoMipMapsForBlock(GeoMipMappingBlock& block)
 {
-    unsigned int totalBorderCount = 0;
-    unsigned int totalCenterCount = 0;
+    unsigned int totalBorderCount = 0, totalCenterCount = 0;
+    unsigned int totalCount = 0;
 
     for (unsigned int i = 0; i <= maxLod; i++) {
         GeoMipMap currentGeoMipMap = GeoMipMap(i);
 
         /* Load border subblocks */
-        unsigned int borderCount = loadBorderAreaForLod(block, block.startIndex, i);
+        unsigned int borderCount = loadBorderAreaForLod(block, block.startIndex, i, totalCount);
         totalBorderCount += borderCount;
-        block.borderStarts.push_back(totalBorderCount - borderCount);
+        totalCount += borderCount;
+        // block.borderStarts.push_back(totalBorderCount - borderCount);
+        // block.borderStarts.push_back(totalCount - borderCount);
 
         /* Load center subblocks */
         unsigned int centerCount = loadCenterAreaForLod(block, block.startIndex, i);
         totalCenterCount += centerCount;
-        block.centerStarts.push_back(totalCenterCount - centerCount);
+        totalCount += centerCount;
+        // block.centerStarts.push_back(totalCenterCount - centerCount);
+        block.centerStarts.push_back(totalCount - centerCount /* - borderCount*/);
 
         block.geoMipMaps.push_back(currentGeoMipMap);
     }
@@ -245,41 +293,13 @@ void GeoMipMapping::loadGeoMipMapsForBlock(GeoMipMappingBlock& block)
     glGenBuffers(1, &block.ebo);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, block.ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, block.indexBuffer.size() * sizeof(unsigned int), &block.indexBuffer[0], GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, block.indices.size() * sizeof(unsigned int), &block.indices[0], GL_STATIC_DRAW);
 
-    /* Empty temporary index vector for less memory consumption? */
-    block.indexBuffer.clear();
+    /* TODO: Clear temporary index vector for less memory consumption?
+     *       The indices are in the EBO anyway...
+     */
+    block.indices.clear();
 }
-
-///**
-// * @brief GeoMipMapping::createIndicesForConfig
-// * @param block
-// * @param configBitmap
-// * @param lod
-// * @param startIndex
-// * @return
-// */
-// unsigned int GeoMipMapping::createIndicesForConfig(GeoMipMappingBlock& block, unsigned int configBitmap, unsigned int lod, unsigned int startIndex)
-//{
-//    unsigned int step = std::pow(2, maxLod - lod);
-
-//    unsigned int count = 0;
-
-//    /* For now only do normal cracked blocks, just for testing */
-//    for (unsigned int i = 0; i < blockSize - 1; i += step) {
-//        for (unsigned int j = 0; j < blockSize; j += step) {
-//            block.indexBuffer.push_back(i * width + startIndex + j);
-//            block.indexBuffer.push_back((i + 1 * step) * width + startIndex + j);
-//            count += 2;
-//        }
-//        block.indexBuffer.push_back(RESTART);
-//        count++;
-//    }
-
-//    block.subBufferSizes.push_back(count);
-
-//    return count;
-//}
 
 /**
  * @brief GeoMipMapping::loadSingleBorderSide
@@ -306,7 +326,78 @@ unsigned int GeoMipMapping::loadSingleBorderSide(GeoMipMappingBlock& block, unsi
  */
 unsigned int GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& block, unsigned int startIndex, unsigned int lod, unsigned int configuration)
 {
-    return 0;
+
+    /*
+     * The idea is to traverse the border subblocks clockwise starting from the top left corner.
+     *
+     * TODO:
+     * - Vertex omission cases
+     * - Corners
+     * - Refactor the below left, right, top, bottom cases into single methods
+     * - Determine way to access single indices inside single blocks using x, y.
+     */
+
+    unsigned int step = std::pow(2, maxLod - lod);
+    unsigned int count = 0;
+    // bool onCorner = true;
+
+    /* ============================= Top side ============================= */
+    if (configuration & TOP_BORDER_BITMASK) {
+        /* Load border with crack avoidance */
+
+    } else {
+        /* Load border normally like any other block */
+        for (unsigned int j = step; j < blockSize - step; j += step) {
+            block.indices.push_back(0 * width + startIndex + j);
+            block.indices.push_back((0 + 1 * step) * width + startIndex + j);
+            count += 2;
+        }
+        block.indices.push_back(RESTART_INDEX);
+        count++;
+    }
+
+    /* ============================ Right side ============================ */
+    if (configuration & RIGHT_BORDER_BITMASK) {
+    } else {
+        /* Load border normally like any other block*/
+        for (unsigned int i = step; i < blockSize - step; i += step) {
+            block.indices.push_back(i * width + startIndex + blockSize - 1 * step - 1);
+            block.indices.push_back(i * width + startIndex + blockSize - 0 * step - 1);
+            count += 2;
+        }
+        block.indices.push_back(RESTART_INDEX);
+        count++;
+    }
+
+    /* ============================ Bottom side =========================== */
+    if (configuration & BOTTOM_BORDER_BITMASK) {
+    } else {
+        /* Load border normally like any other block */
+        for (unsigned int j = step; j < blockSize - step; j += step) {
+            block.indices.push_back((blockSize - step - 1) * width + startIndex + j);
+            block.indices.push_back(((blockSize - step - 1) + 1 * step) * width + startIndex + j);
+            count += 2;
+        }
+        block.indices.push_back(RESTART_INDEX);
+        count++;
+    }
+
+    /* ============================= Left side ============================ */
+    if (configuration & LEFT_BORDER_BITMASK) {
+    } else {
+        /* Load border normally like any other block */
+        for (unsigned int i = step; i < blockSize - step; i += step) {
+            block.indices.push_back(i * width + startIndex + 0 * step);
+            block.indices.push_back(i * width + startIndex + 1 * step);
+            count += 2;
+        }
+        block.indices.push_back(RESTART_INDEX);
+        count++;
+    }
+
+    block.borderSizes.push_back(count);
+
+    return count;
 }
 
 /**
@@ -316,13 +407,16 @@ unsigned int GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& b
  * @param lod
  * @return
  */
-unsigned int GeoMipMapping::loadBorderAreaForLod(GeoMipMappingBlock& block, unsigned int startIndex, unsigned int lod)
+unsigned int GeoMipMapping::loadBorderAreaForLod(GeoMipMappingBlock& block, unsigned int startIndex, unsigned int lod, unsigned int accumulatedCount)
 {
     unsigned int totalCount = 0;
 
     /* 2^4 = 16 possible combinations */
     for (int i = 0; i < 16; i++) {
-        totalCount += loadBorderAreaForConfiguration(block, startIndex, lod, i);
+        unsigned int count = loadBorderAreaForConfiguration(block, startIndex, lod, i);
+        totalCount += count;
+        accumulatedCount += count;
+        block.borderStarts.push_back(accumulatedCount - count);
     }
 
     return totalCount;
@@ -343,43 +437,18 @@ unsigned int GeoMipMapping::loadCenterAreaForLod(GeoMipMappingBlock& block, unsi
 
     for (unsigned int i = step; i < blockSize - step - 1; i += step) {
         for (unsigned int j = step; j < blockSize - step; j += step) {
-            block.indexBuffer.push_back(i * width + startIndex + j);
-            block.indexBuffer.push_back((i + 1 * step) * width + startIndex + j);
+            block.indices.push_back(i * width + startIndex + j);
+            block.indices.push_back((i + 1 * step) * width + startIndex + j);
             count += 2;
         }
-        block.indexBuffer.push_back(RESTART);
+        block.indices.push_back(RESTART_INDEX);
         count++;
     }
-
-    // std::cout << "Count for LOD " << lod << ": " << count << "\n";
 
     block.centerSizes.push_back(count);
 
     return count;
 }
-
-///**
-// * @brief GeoMipMapping::loadBorderConfigurationsForGeoMipMap
-// *
-// * TODO: There is probably a better way to solve this than with accumulatedCounts...
-// *
-// * @param block
-// * @param lod
-// * @param startIndex
-// * @param accumulatedCounts
-// * @return
-// */
-// unsigned int GeoMipMapping::loadBorderConfigurationsForGeoMipMap(GeoMipMappingBlock& block, unsigned int lod, unsigned int startIndex, unsigned int accumulatedCounts)
-//{
-//    /* 2^4 = 16 possible combinations for border configurations */
-//    unsigned int totalCount = 0;
-//    for (unsigned int i = 0; i < 16; i++) {
-//        unsigned int count = createIndicesForConfig(block, i, lod, startIndex);
-//        totalCount += count;
-//        block.subBufferStarts.push_back(accumulatedCounts + totalCount - count);
-//    }
-//    return totalCount;
-//}
 
 /**
  * @brief GeoMipMap::GeoMipMap
@@ -388,13 +457,12 @@ unsigned int GeoMipMapping::loadCenterAreaForLod(GeoMipMappingBlock& block, unsi
 GeoMipMap::GeoMipMap(unsigned int lod)
 {
     this->lod = lod;
-    // this->indexBuffers = {};
 }
 
 /**
- * @brief GeoMipMapping::loadIndexBuffers
+ * @brief GeoMipMapping::loadIndices
  */
-void GeoMipMapping::loadIndexBuffers()
+void GeoMipMapping::loadIndices()
 {
     for (unsigned int i = 0; i < nBlocksZ; i++) {
         for (unsigned int j = 0; j < nBlocksX; j++) {
@@ -420,4 +488,6 @@ void GeoMipMapping::unloadBuffers()
             glDeleteBuffers(1, &currentEBO);
         }
     }
+
+    AtlodUtil::checkGlError("GeoMipMapping deletion failed");
 }

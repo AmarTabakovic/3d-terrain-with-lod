@@ -10,7 +10,10 @@
 
 #include <string>
 
-const GLuint RESTART = std::numeric_limits<GLuint>::max();
+const GLuint RESTART_INDEX = std::numeric_limits<GLuint>::max();
+
+class RenderArgs {
+};
 
 /**
  * @brief Abstract class containing shared members for all derived terrain

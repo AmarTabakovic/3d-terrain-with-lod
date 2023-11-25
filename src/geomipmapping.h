@@ -4,6 +4,14 @@
 #include "camera.h"
 #include "terrain.h"
 
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
+
+const unsigned int LEFT_BORDER_BITMASK = 0b1000;
+const unsigned int RIGHT_BORDER_BITMASK = 0b0100;
+const unsigned int TOP_BORDER_BITMASK = 0b0010;
+const unsigned int BOTTOM_BORDER_BITMASK = 0b0001;
+
 /**
  * @brief The GeoMipMap class
  */
@@ -19,13 +27,16 @@ public:
 class GeoMipMappingBlock {
 public:
     GeoMipMappingBlock(unsigned int blockId, unsigned int startIndex);
+
+    /* Distance to the camera */
     float distance;
+
     unsigned int currentLod;
+
     unsigned int blockId;
 
     /* Top-left corner of the block */
     unsigned int startIndex;
-    unsigned int count;
 
     /*
      * The bitmap represents the bordering left, right, top, bottom blocks, where
@@ -33,28 +44,26 @@ public:
      */
     unsigned int currentBorderBitmap;
 
-    /* Access a mipmap with current LOD as index */
+    /* A GeoMipMap can be accessed with the current LOD as the index */
     std::vector<GeoMipMap> geoMipMaps;
 
     unsigned int ebo;
-    std::vector<unsigned int> indexBuffer;
+    std::vector<unsigned int> indices;
 
     /*
-     * Each set of indices for a certain LOD level and border configuration,
-     * e.g. (LOD 0, 0000), is stored on the same index buffer per block.
+     * The EBO of a block contains all indices of a block, for each LOD level
+     * and border configuration. When rendering a block, the subset of the
+     * indices for a certain LOD level and border configuration must be
+     * selected, e.g. (LOD 0, 0000).
      *
-     * To render different a block with a specific LOD and border configuration,
-     * the start indices and sizes need to be known, which are stored in
-     * subBufferSizes and subBufferStarts.
+     * The start indices and sizes of these subsets are stored
+     * in the below fields borderStarts, borderSizes, centerStarts and
+     * centerSizes.
      */
-    std::vector<unsigned int> subBufferSizes;
-    std::vector<unsigned int> subBufferStarts;
-
-    std::vector<unsigned int> borderSizes;
     std::vector<unsigned int> borderStarts;
-
-    std::vector<unsigned int> centerSizes;
+    std::vector<unsigned int> borderSizes;
     std::vector<unsigned int> centerStarts;
+    std::vector<unsigned int> centerSizes;
 };
 
 /**
@@ -65,25 +74,20 @@ public:
     GeoMipMapping(std::string& heightmapFileName, std::string& textureFileName, unsigned int blockSize = 17);
     ~GeoMipMapping();
     void render(Camera camera);
-    void loadIndicesForBlock(unsigned int blockX, unsigned int blockY, unsigned int lod, unsigned int blockStart);
     void loadBuffers();
     void unloadBuffers();
-    void renderPatch();
-    void loadIndices();
-    void loadIndexBuffers();
-    void loadGeoMipMapsForBlock(GeoMipMappingBlock& block);
 
-    // NEW
-    // unsigned int loadSingleBorderFan(unsigned int startIndex, unsigned int omissionConfig);
+    void loadIndicesForBlock(unsigned int blockX, unsigned int blockY, unsigned int lod, unsigned int blockStart);
+    // void renderPatch();
+    void loadIndices();
+    // void loadIndexBuffers();
+    GeoMipMappingBlock& getBlock(unsigned int x, unsigned int z);
+    unsigned int calculateBorderBitmap(unsigned int currentBlockId, unsigned int x, unsigned int y);
+    void loadGeoMipMapsForBlock(GeoMipMappingBlock& block);
     unsigned int loadSingleBorderSide(GeoMipMappingBlock& block, unsigned int startIndex, unsigned int lod, unsigned int currentSide, bool leftSideHigher, bool rightSideHigher);
     unsigned int loadBorderAreaForConfiguration(GeoMipMappingBlock& block, unsigned int startIndex, unsigned int lod, unsigned int configuration);
-    unsigned int loadBorderAreaForLod(GeoMipMappingBlock& block, unsigned int startIndex, unsigned int lod);
+    unsigned int loadBorderAreaForLod(GeoMipMappingBlock& block, unsigned int startIndex, unsigned int lod, unsigned int accumulatedCount);
     unsigned int loadCenterAreaForLod(GeoMipMappingBlock& block, unsigned int startIndex, unsigned int lod);
-
-    // OLD
-    unsigned int loadBorderConfigurationsForGeoMipMap(GeoMipMappingBlock& block, unsigned int lod, unsigned int startIndex, unsigned int accumulatedCounts);
-    unsigned int createIndicesForConfig(GeoMipMappingBlock& block, unsigned int configBitmap, unsigned int lod, unsigned int startIndex);
-
     unsigned int determineLod(float distance);
 
     unsigned int terrainVAO, terrainVBO;
@@ -99,7 +103,7 @@ public:
      * The trimmed width and height, such that the width and height are
      * a multiple of the block size
      */
-    unsigned int trimmedWidth, trimmedHeight;
+    // unsigned int trimmedWidth, trimmedHeight;
     std::vector<float> vertices;
 };
 

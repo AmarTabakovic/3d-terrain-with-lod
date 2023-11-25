@@ -35,7 +35,7 @@ void Terrain::loadHeightmap(std::string& fileName)
     } else if (extension == ".xyz") {
         loadHeightmapXyz(fileName);
     } else {
-        std::cout << "File extension not supported: " << extension << std::endl;
+        std::cerr << "File extension not supported: " << extension << std::endl;
         std::exit(1);
     }
 }
@@ -50,7 +50,7 @@ void Terrain::loadHeightmapXyz(std::string& fileName)
     std::string line;
 
     if (!heightmapFile.is_open()) {
-        std::cout << "Error while reading heightmap file" << std::endl;
+        std::cerr << "Error while reading heightmap file" << std::endl;
         std::exit(1);
     }
 
@@ -64,7 +64,7 @@ void Terrain::loadHeightmapXyz(std::string& fileName)
     unsigned int heightmapSize = std::sqrt(nLines);
 
     if (heightmapSize * heightmapSize != nLines) {
-        std::cout << "XYZ heightmap must be square" << std::endl;
+        std::cerr << "XYZ heightmap must be square" << std::endl;
         std::exit(1);
     }
 
@@ -83,8 +83,7 @@ void Terrain::loadHeightmapXyz(std::string& fileName)
             &x, &z, &y);
 
         if (ret != 3) {
-            std::cout << "XYZ heightmap not formatted correctly" << std::endl;
-            std::cout << line << std::endl;
+            std::cerr << "XYZ heightmap not formatted correctly" << std::endl;
             std::exit(1);
         }
 
@@ -109,7 +108,8 @@ void Terrain::loadHeightmapImage(std::string& fileName)
     if (data) {
         std::cout << "Loaded heightmap of size " << width << " x " << height << std::endl;
     } else {
-        std::cout << "Failed to load heightmap" << std::endl;
+        std::cerr << "Failed to load heightmap" << std::endl;
+        std::exit(1);
     }
 
     heightmap = new Heightmap(width, height);
@@ -146,7 +146,7 @@ void Terrain::loadHeightmapAsciiGrid(std::string& fileName)
     unsigned int nCols, nRows;
 
     if (!heightmapFile.is_open()) {
-        std::cout << "Error while reading heightmap file" << std::endl;
+        std::cerr << "Error while reading heightmap file" << std::endl;
         std::exit(1);
     }
 
@@ -179,8 +179,8 @@ void Terrain::loadHeightmapAsciiGrid(std::string& fileName)
             }
         }
     } catch (...) {
-        std::cout << "Invalid .asc file" << std::endl;
-        exit(1);
+        std::cerr << "Invalid .asc file" << std::endl;
+        std::exit(1);
     }
 
     std::cout << "Loaded heightmap of size " << nCols << " x " << nRows << std::endl;
@@ -211,8 +211,8 @@ void Terrain::loadTexture(std::string& fileName)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
-        std::cout << "Failed to load texture" << std::endl;
-        exit(1);
+        std::cerr << "Failed to load texture" << std::endl;
+        std::exit(1);
     }
     stbi_image_free(data);
 

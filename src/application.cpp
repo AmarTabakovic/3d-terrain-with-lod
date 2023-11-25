@@ -85,21 +85,21 @@ int run()
 
     glEnable(GL_DEPTH_TEST);
 
-    // std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
+    std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
     //    std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
     //   std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
     //  std::string heightmapPath = "../3d-terrain-with-lod/data/5x5.png";
     //  std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
 
-    std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-2.asc";
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-2.asc";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-3.asc";
 
     // std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
 
-    std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-2.png";
+    // std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-2.png";
     // std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-3.png";
     // std::string texturePath = "../3d-terrain-with-lod/data/5x5.png";
-    // std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
+    std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
 
     naiveRenderer = new NaiveRenderer(heightmapPath, texturePath);
     naiveRenderer->loadBuffers();
