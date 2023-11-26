@@ -39,7 +39,7 @@ Terrain* current;
 
 Camera camera = Camera(glm::vec3(-723.0f, 1050.5f, -723.9f),
     glm::vec3(0.0f, 1.0f, 0.0f),
-    0.1f, -40.4f);
+    0.0f, -40.4f);
 
 /**
  * @brief Application::setup
@@ -85,11 +85,11 @@ int run()
 
     glEnable(GL_DEPTH_TEST);
 
-    std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
-    //    std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
-    //   std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
-    //  std::string heightmapPath = "../3d-terrain-with-lod/data/5x5.png";
-    //  std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
+    //      std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
+    std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
+    //   std::string heightmapPath = "../3d-terrain-with-lod/data/5x5.png";
+    //   std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
 
     // std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-2.asc";
     // std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-3.asc";

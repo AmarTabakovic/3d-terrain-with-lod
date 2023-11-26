@@ -81,6 +81,7 @@ unsigned int GeoMipMapping::calculateBorderBitmap(unsigned int currentBlockId, u
 {
     unsigned int currentLod = blocks[currentBlockId].currentLod;
 
+    /* TODO: problems with unsigned... */
     GeoMipMappingBlock& leftBlock = getBlock(std::max((int)(x)-1, 0), z);
     GeoMipMappingBlock& rightBlock = getBlock(std::min((int)(x) + 1, (int)nBlocksX - 1), z);
     GeoMipMappingBlock& topBlock = getBlock(x, std::max((int)(z)-1, 0));
@@ -160,23 +161,25 @@ void GeoMipMapping::render(Camera camera)
      */
     for (unsigned int i = 0; i < nBlocksZ; i++) {
         for (unsigned int j = 0; j < nBlocksX; j++) {
-            // unsigned int currBlock = i * nBlocksX + j;
-
             GeoMipMappingBlock& block = getBlock(j, i);
 
-            unsigned int currentLod = block.currentLod;
-            unsigned int currentBorderBitmap = block.currentBorderBitmap;
-
-            unsigned int currentIndex = currentLod;
+            unsigned int currentIndex = block.currentLod;
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, block.ebo);
 
-            /* First draw center subblocks */
-            glDrawElements(GL_TRIANGLE_STRIP, block.centerSizes[currentIndex], GL_UNSIGNED_INT, (void*)(block.centerStarts[currentIndex] * sizeof(unsigned int)));
+            /* First render the center subblocks */
+            glDrawElements(GL_TRIANGLE_STRIP,
+                block.centerSizes[currentIndex],
+                GL_UNSIGNED_INT,
+                (void*)(block.centerStarts[currentIndex] * sizeof(unsigned int)));
 
-            /* Then render border subblocks */
-            currentIndex = currentLod * 16 + currentBorderBitmap;
-            glDrawElements(GL_TRIANGLE_STRIP, block.borderSizes[currentIndex], GL_UNSIGNED_INT, (void*)(block.borderStarts[currentIndex] * sizeof(unsigned int)));
+            /* Then render the border subblocks */
+            currentIndex = currentIndex * 16 + block.currentBorderBitmap;
+
+            glDrawElements(GL_TRIANGLE_STRIP,
+                block.borderSizes[currentIndex],
+                GL_UNSIGNED_INT,
+                (void*)(block.borderStarts[currentIndex] * sizeof(unsigned int)));
         }
     }
 
@@ -194,17 +197,18 @@ unsigned int GeoMipMapping::determineLod(float distance)
      * Naive LOD determination taken from "Focus on Terrain Programming"
      * TODO: Implement proper LOD determination
      */
-    if (distance < 100) {
+    float baseDist = 100.0f;
+    if (distance < 1 * baseDist) {
         return maxLod;
-    } else if (distance < 200) {
+    } else if (distance < 2 * baseDist) {
         return maxLod - 1;
-    } else if (distance < 300) {
+    } else if (distance < 3 * baseDist) {
         return maxLod - 2;
-    } else if (distance < 400) {
+    } else if (distance < 4 * baseDist) {
         return maxLod - 3;
-    } else if (distance < 500) {
+    } else if (distance < 5 * baseDist) {
         return maxLod - 4;
-    } else if (distance < 600) {
+    } else if (distance < 6 * baseDist) {
         return maxLod - 5;
     } else
         return maxLod - 6;
@@ -277,15 +281,13 @@ void GeoMipMapping::loadGeoMipMapsForBlock(GeoMipMappingBlock& block)
         unsigned int borderCount = loadBorderAreaForLod(block, block.startIndex, i, totalCount);
         totalBorderCount += borderCount;
         totalCount += borderCount;
-        // block.borderStarts.push_back(totalBorderCount - borderCount);
-        // block.borderStarts.push_back(totalCount - borderCount);
 
         /* Load center subblocks */
         unsigned int centerCount = loadCenterAreaForLod(block, block.startIndex, i);
         totalCenterCount += centerCount;
         totalCount += centerCount;
-        // block.centerStarts.push_back(totalCenterCount - centerCount);
-        block.centerStarts.push_back(totalCount - centerCount /* - borderCount*/);
+
+        block.centerStarts.push_back(totalCount - centerCount);
 
         block.geoMipMaps.push_back(currentGeoMipMap);
     }
@@ -332,8 +334,9 @@ unsigned int GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& b
      *
      * TODO:
      * - Vertex omission cases
-     * - Corners
+     * - Corners (for now no special corner cases were implemented, mainly for testing purposes)
      * - Refactor the below left, right, top, bottom cases into single methods
+     * - Clean up the indexing (e.g. zero-multiplications, etc:)
      * - Determine way to access single indices inside single blocks using x, y.
      */
 
@@ -341,13 +344,169 @@ unsigned int GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& b
     unsigned int count = 0;
     // bool onCorner = true;
 
+    /* ========================== Top left corner ========================= */
+    if ((configuration & LEFT_BORDER_BITMASK) && (configuration & TOP_BORDER_BITMASK)) { /* bitmask is 1_1_ */
+        /*
+         * *- - -*- - -*
+         * |\         /|
+         * |  \     /  |
+         * |    \ /    |
+         * *     *- - -*
+         * |    /|
+         * |  /  |
+         * |/    |
+         * *- - -*
+         *
+         */
+
+        block.indices.push_back((0 + 2 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 2 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back(RESTART_INDEX);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back(RESTART_INDEX);
+        count += 10;
+
+    } else if (configuration & LEFT_BORDER_BITMASK) { /* bitmask is 1_0_*/
+
+        /*
+         * *- - -*- - -*
+         * |\    |    /|
+         * |  \  |  /  |
+         * |    \|/    |
+         * *     *- - -*
+         * |    /|
+         * |  /  |
+         * |/    |
+         * *- - -*
+         *
+         */
+
+        block.indices.push_back((0 + 2 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 2 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back(RESTART_INDEX);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back(RESTART_INDEX);
+        count += 11;
+
+    } else if (configuration & TOP_BORDER_BITMASK) { /* bitmask is 0_1_ */
+        /*
+         * *- - -*- - -*
+         * |\         /|
+         * |  \     /  |
+         * |    \ /    |
+         * *- - -*- - -*
+         * |    /|
+         * |  /  |
+         * |/    |
+         * *- - -*
+         *
+         */
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 2 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 2 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back(RESTART_INDEX);
+
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back(RESTART_INDEX);
+
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back(RESTART_INDEX);
+
+        count += 14;
+
+    } else if (!(configuration & TOP_BORDER_BITMASK) && !(configuration & LEFT_BORDER_BITMASK)) { /* bitmask is 0_0_*/
+        /*
+         * *- - -*- - -*
+         * |    /|    /|
+         * |  /  |  /  |
+         * |/    |/    |
+         * *- - -*- - -*
+         * |    /|
+         * |  /  |
+         * |/    |
+         * *- - -*
+         *
+         */
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 2 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 2 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back(RESTART_INDEX);
+
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 0 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 1 * step);
+        block.indices.push_back((0 + 0 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back((0 + 1 * step) * width + startIndex + 0 + 2 * step);
+        block.indices.push_back(RESTART_INDEX);
+
+        count += 12;
+    }
+
     /* ============================= Top side ============================= */
+    //    if (configuration & TOP_BORDER_BITMASK) {
+
+    //        /* Load border with crack avoidance */
+    //        for (unsigned int j = 0; j < blockSize - step; j += step * 2) {
+    //            block.indices.push_back((0 + 1 * step) * width + startIndex + j);
+    //            block.indices.push_back(0 * width + startIndex + j);
+    //            block.indices.push_back((0 + 1 * step) * width + startIndex + j + 1 * step);
+    //            block.indices.push_back(0 * width + startIndex + j + 2 * step);
+    //            block.indices.push_back((0 + 1 * step) * width + startIndex + j + 2 * step);
+    //            block.indices.push_back(RESTART_INDEX);
+    //            count += 6;
+    //        }
+    //        block.indices.push_back(RESTART_INDEX);
+    //        count++;
+
+    //    } else {
+    //        /* Load border normally like any other block */
+    //        for (unsigned int j = step; j < blockSize - step; j += step) {
+    //            block.indices.push_back(0 * width + startIndex + j);
+    //            block.indices.push_back((0 + 1 * step) * width + startIndex + j);
+    //            count += 2;
+    //        }
+    //        block.indices.push_back(RESTART_INDEX);
+    //        count++;
+    //    }
+
     if (configuration & TOP_BORDER_BITMASK) {
+
         /* Load border with crack avoidance */
+        for (int j = step * 2; j < ((int)(blockSize) - ((int)step * 3)); j += step * 2) {
+            std::cout << j << std::endl;
+            block.indices.push_back((0 + 1 * step) * width + startIndex + j);
+            block.indices.push_back(0 * width + startIndex + j);
+            block.indices.push_back((0 + 1 * step) * width + startIndex + j + 1 * step);
+            block.indices.push_back(0 * width + startIndex + j + 2 * step);
+            block.indices.push_back((0 + 1 * step) * width + startIndex + j + 2 * step);
+            block.indices.push_back(RESTART_INDEX);
+            count += 6;
+        }
+        block.indices.push_back(RESTART_INDEX);
+        count++;
 
     } else {
         /* Load border normally like any other block */
-        for (unsigned int j = step; j < blockSize - step; j += step) {
+        for (int j = step * 2; j < ((int)(blockSize) - ((int)step * 2)); j += step) {
             block.indices.push_back(0 * width + startIndex + j);
             block.indices.push_back((0 + 1 * step) * width + startIndex + j);
             count += 2;
@@ -358,6 +517,17 @@ unsigned int GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& b
 
     /* ============================ Right side ============================ */
     if (configuration & RIGHT_BORDER_BITMASK) {
+        for (unsigned int i = 0; i < blockSize - step; i += step * 2) {
+            block.indices.push_back(i * width + startIndex + blockSize - 1 * step - 1);
+            block.indices.push_back(i * width + startIndex + blockSize - 0 * step - 1);
+            block.indices.push_back((i + 1 * step) * width + startIndex + blockSize - 1 * step - 1);
+            block.indices.push_back((i + 2 * step) * width + startIndex + blockSize - 0 * step - 1);
+            block.indices.push_back((i + 2 * step) * width + startIndex + blockSize - 1 * step - 1);
+            block.indices.push_back(RESTART_INDEX);
+            count += 6;
+        }
+        block.indices.push_back(RESTART_INDEX);
+        count++;
     } else {
         /* Load border normally like any other block*/
         for (unsigned int i = step; i < blockSize - step; i += step) {
@@ -371,6 +541,18 @@ unsigned int GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& b
 
     /* ============================ Bottom side =========================== */
     if (configuration & BOTTOM_BORDER_BITMASK) {
+        for (unsigned int j = 0; j < blockSize - step; j += step * 2) {
+
+            block.indices.push_back((blockSize - step - 1) * width + startIndex + j);
+            block.indices.push_back(((blockSize - step - 1) + 1 * step) * width + startIndex + j);
+            block.indices.push_back((blockSize - step - 1) * width + startIndex + j + 1 * step);
+            block.indices.push_back(((blockSize - step - 1) + 1 * step) * width + startIndex + j + 2 * step);
+            block.indices.push_back(((blockSize - step - 1)) * width + startIndex + j + 2 * step);
+            block.indices.push_back(RESTART_INDEX);
+            count += 6;
+        }
+        block.indices.push_back(RESTART_INDEX);
+        count++;
     } else {
         /* Load border normally like any other block */
         for (unsigned int j = step; j < blockSize - step; j += step) {
@@ -384,6 +566,17 @@ unsigned int GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& b
 
     /* ============================= Left side ============================ */
     if (configuration & LEFT_BORDER_BITMASK) {
+        for (unsigned int i = 0; i < blockSize - step; i += step * 2) {
+            block.indices.push_back(i * width + startIndex + 1 * step);
+            block.indices.push_back(i * width + startIndex);
+            block.indices.push_back((i + 1 * step) * width + startIndex + 1 * step);
+            block.indices.push_back((i + 2 * step) * width + startIndex);
+            block.indices.push_back((i + 2 * step) * width + startIndex + 1 * step);
+            block.indices.push_back(RESTART_INDEX);
+            count += 6;
+        }
+        block.indices.push_back(RESTART_INDEX);
+        count++;
     } else {
         /* Load border normally like any other block */
         for (unsigned int i = step; i < blockSize - step; i += step) {
@@ -412,6 +605,7 @@ unsigned int GeoMipMapping::loadBorderAreaForLod(GeoMipMappingBlock& block, unsi
     unsigned int totalCount = 0;
 
     /* 2^4 = 16 possible combinations */
+    /* TODO: Load LOD 0 manually? */
     for (int i = 0; i < 16; i++) {
         unsigned int count = loadBorderAreaForConfiguration(block, startIndex, lod, i);
         totalCount += count;
