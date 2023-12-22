@@ -1,7 +1,7 @@
 #include "application.h"
 
-#include "geomipmapping.h"
-#include "naiverenderer.h"
+#include "geomipmapping/geomipmapping.h"
+#include "naiverenderer/naiverenderer.h"
 #include "shader.h"
 
 #include "stb_image.h"
@@ -13,16 +13,13 @@
 #include <iostream>
 #include <vector>
 
-/**
- *
- */
 namespace Application {
 
-const unsigned int SCR_WIDTH = 1000;
-const unsigned int SCR_HEIGHT = 800;
+const unsigned SCR_WIDTH = 1000;
+const unsigned SCR_HEIGHT = 800;
 
-unsigned int windowWidth = SCR_WIDTH;
-unsigned int windowHeight = SCR_HEIGHT;
+unsigned windowWidth = SCR_WIDTH;
+unsigned windowHeight = SCR_HEIGHT;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -33,13 +30,25 @@ bool renderWireframe = false;
 
 ColorMode mode = DARK;
 
+ActiveTerrain activeTerrain;
+
 Terrain* naiveRenderer;
 Terrain* geoMipMapping;
+
 Terrain* current;
 
 Camera camera = Camera(glm::vec3(-723.0f, 1050.5f, -723.9f),
     glm::vec3(0.0f, 1.0f, 0.0f),
+    0.0f, 100000.0f, (float)windowWidth / (float)windowHeight,
     0.0f, -40.4f);
+
+glm::vec3 skyColor = /*glm::vec3(92.0f, 160.0f, 255.0f)*/ glm::vec3(230.0f, 240.0f, 250.0f) * (1.0f / 255.0f);
+glm::vec3 terrainColor = glm::vec3(120.0f, 117.0f, 115.0f) * (1.0f / 255.0f);
+
+glm::vec3 lightPos(10000.0f, 5000.0f, 10000.0f);
+glm::vec3 lightDirection = camera.front();
+
+bool doFog = true;
 
 /**
  * @brief Application::setup
@@ -61,7 +70,7 @@ int setup()
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
-        return -1;
+        return 1;
     }
     return 0;
 }
@@ -80,45 +89,71 @@ int run()
 
     if (err != GLEW_OK) {
         glfwTerminate();
+        shutDown();
         return 1;
     }
 
+    glFrontFace(GL_CCW);
+    glCullFace(GL_BACK);
+    glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
 
-    // std::string heightmapPath = "../3d-terrain-with-lod/data/basel-srtm-test-1024.png";
-    //      std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-biel-30m.asc";
-    std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
-    //   std::string heightmapPath = "../3d-terrain-with-lod/data/5x5.png";
-    //   std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/srtmgl-basel-30m.asc";
+    // std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
 
-    // std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-2.asc";
-    // std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-3.asc";
-
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/dom-0.5.xyz";
     // std::string texturePath = "../3d-terrain-with-lod/data/dom-texture-highres.png";
 
+    std::string heightmapPath = "../3d-terrain-with-lod/data/alps-basel-srtm-heightmap-1.asc";
+    //  std::string texturePath = "../3d-terrain-with-lod/data/alps-basel-srtm-relief-1.png";
+
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-2.asc";
     // std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-2.png";
-    // std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-3.png";
-    // std::string texturePath = "../3d-terrain-with-lod/data/5x5.png";
-    std::string texturePath = "../3d-terrain-with-lod/data/basel-texture-temp.png";
 
-    naiveRenderer = new NaiveRenderer(heightmapPath, texturePath);
-    naiveRenderer->loadBuffers();
+    // std::string heightmapPath = "../3d-terrain-with-lod/data/alps-srtm-heightmap-3.asc";
+    //   std::string texturePath = "../3d-terrain-with-lod/data/alps-srtm-relief-3.png";
 
-    naiveRenderer->shader->use();
-    naiveRenderer->shader->setInt("texture1", 0);
+    //std::string heightmapPath = "../3d-terrain-with-lod/data/heightmap-srtm-30m-1.asc";
+    //std::string texturePath = "../3d-terrain-with-lod/data/relief-srtm-30m-1.png";
 
-    geoMipMapping = new GeoMipMapping(heightmapPath, texturePath, 65); // 65 works well
+    Heightmap heightmap;
+    heightmap.load(heightmapPath);
+
+    // naiveRenderer = new NaiveRenderer(heightmap, 1.0f, 1.0f / 30.0f);
+    // naiveRenderer->loadBuffers();
+    //    naiveRenderer->loadTexture(texturePath);
+    //         naiveRenderer->shader->use();
+    //         naiveRenderer->shader->setInt("texture1", 0);
+
+    geoMipMapping = new GeoMipMapping(heightmap, 1.0f, 1.0f / 30.0f, 257); /* 65, 129, 257 work well*/
     geoMipMapping->loadBuffers();
+    //  geoMipMapping->loadTexture(texturePath);
+    //    geoMipMapping->shader->use();
+    //    geoMipMapping->shader->setInt("texture1", 0);
 
-    geoMipMapping->shader->use();
-    geoMipMapping->shader->setInt("texture1", 0);
+    current = geoMipMapping;
+    activeTerrain = ActiveTerrain::GEOMIPMAPPING;
 
-    current = naiveRenderer; // naiveRenderer;
+    heightmap.clear();
+
+    int fps = 0;
+    float previousTime = glfwGetTime();
 
     while (!glfwWindowShouldClose(window)) {
+        fps++;
+
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+
+        /* Log FPS */
+        if (currentFrame - previousTime >= 1.0) {
+            std::cout << "FPS: " << fps << std::endl;
+            fps = 0;
+            previousTime = currentFrame;
+        }
+
+        camera.updateFrustum();
 
         processInput();
 
@@ -132,58 +167,79 @@ int run()
                 glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             else
                 glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        } else {
-            glClearColor(203.0f / 255.0f, 228.0f / 255.0f, 242.0f / 255.0f, 1.0f);
-        }
+        } else
+            glClearColor(skyColor.r, skyColor.g, skyColor.b, 1.0f);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        current->shader->use();
+        current->shader().use();
 
-        glm::mat4 projection = glm::perspective(glm::radians(camera.getZoom()), (float)windowWidth / (float)windowHeight, 0.1f, 100000.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(camera.zoom()), (float)windowWidth / (float)windowHeight, 0.1f, 100000.0f);
         glm::mat4 view = camera.getViewMatrix();
         glm::vec2 settings = glm::vec2((float)mode, (float)renderWireframe);
 
-        current->shader->setVec2("rendersettings", settings);
-
-        current->shader->setMat4("projection", projection);
-        current->shader->setMat4("view", view);
-
-        // TODO set these values in model matrix
-        current->shader->setFloat("xzScale", current->xzScale);
-        current->shader->setFloat("yScale", current->yScale);
+        /* TODO: Set these uniform variables in the render() method of the
+         * Terrain classes */
+        current->shader().setVec2("rendersettings", settings);
+        current->shader().setMat4("projection", projection);
+        current->shader().setMat4("view", view);
+        current->shader().setVec3("cameraPos", camera.position());
+        current->shader().setVec3("lightDirection", lightDirection);
+        current->shader().setVec3("skyColor", skyColor);
+        current->shader().setVec3("terrainColor", terrainColor);
+        current->shader().setFloat("doFog", (float)doFog);
 
         glm::mat4 model = glm::mat4(1.0f);
-        current->shader->setMat4("model", model);
+        model = glm::scale(model, glm::vec3(current->xzScale(), current->yScale(), current->xzScale()));
+        current->shader().setMat4("model", model);
 
-        if (renderWireframe) {
+        /* http://www.lighthouse3d.com/tutorials/glsl-12-tutorial/the-normal-matrix/ */
+        current->shader().setMat4("normalMatrix", glm::transpose(glm::inverse(model)));
+
+        if (renderWireframe)
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        } else {
+        else
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        }
 
-        // current->render(camera);
-
-        // glViewport(0, 0, windowWidth, windowHeight);
         try {
             current->render(camera);
         } catch (std::exception e) {
             std::cout << "error: " << std::endl;
             std::cout << e.what() << std::endl;
-            std::exit(1);
-        }
 
-        /*glViewport(100, 0, 100, 100);
-        current->render(camera);*/
+            shutDown();
+            return 1;
+        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-    current->unloadBuffers();
+
+    shutDown();
+
+    return 0;
+}
+
+void logFps()
+{
+}
+
+/**
+ * @brief shutDown
+ */
+void shutDown()
+{
+    geoMipMapping->unloadBuffers();
+    //  naiveRenderer->unloadBuffers();
+
     glfwTerminate();
     delete geoMipMapping;
-    delete naiveRenderer;
-    return 0;
+    //   delete naiveRenderer;
+
+    std::cout << "ok";
+
+    while (1)
+        ;
 }
 
 /**
@@ -225,17 +281,28 @@ void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action
 {
     if (action == GLFW_PRESS) {
         switch (key) {
-        case GLFW_KEY_SPACE:
+        case GLFW_KEY_SPACE: /* Toggle wireframe */
             renderWireframe = !renderWireframe;
             break;
-        case GLFW_KEY_M:
+        case GLFW_KEY_M: /* Toggle light/dark mode*/
             mode = mode == DARK ? BRIGHT : DARK;
             break;
-        case GLFW_KEY_1:
-            current = naiveRenderer;
+        case GLFW_KEY_F: /* Toggle fog */
+            doFog = !doFog;
             break;
-        case GLFW_KEY_2:
+        case GLFW_KEY_L: /* Set light direction to camera front vector */
+            lightDirection = camera.front();
+            break;
+        case GLFW_KEY_C: /* Freeze camera and frustum culling */
+            camera.frozen = !camera.frozen;
+            break;
+        case GLFW_KEY_1: /* Switch to naive rendering */
+            current = naiveRenderer;
+            activeTerrain = NAIVE;
+            break;
+        case GLFW_KEY_2: /* Switch to GeoMipMapping */
             current = geoMipMapping;
+            activeTerrain = GEOMIPMAPPING;
             break;
         }
     }
@@ -250,6 +317,8 @@ void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action
  */
 void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
+    /* TODO Resize camera frustum as well upon resize*/
     glViewport(0, 0, width, height);
+    camera.aspectRatio((float)width / (float)height);
 }
 }

@@ -1,19 +1,24 @@
 #version 330 core
 layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec2 aTexCoord;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
 
+out vec3 Normal;
 out vec2 TexCoord;
-//out vec3 Position;
+out vec3 FragPosition;
+
 
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
-uniform float xzScale;
-uniform float yScale;
+uniform mat4 normalMatrix;
+//uniform float xzScale;
+//uniform float yScale;
 
 void main()
 {
+    Normal = mat3(normalMatrix) * aNormal;
     TexCoord = vec2(aTexCoord.x, aTexCoord.y);
-    //Position = (view * model * vec4(aPos, 1.0)).xyz;
-    gl_Position = projection * view * model * vec4(aPos.x * xzScale, aPos.y * yScale, aPos.z * xzScale, 1.0);
+    FragPosition =  vec3(model * vec4(aPos, 1.0));
+    gl_Position = projection * view * model * vec4(aPos, 1.0);
 }

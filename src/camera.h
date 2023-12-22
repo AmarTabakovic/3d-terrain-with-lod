@@ -7,7 +7,7 @@
 
 const float YAW = -90.0f;
 const float PITCH = 0.0f;
-const float SPEED = 37.5f;
+const float SPEED = 37.5;
 const float SPEED_UP_MULT = 8;
 const float ZOOM = 45.0f;
 const float LOOK_VELOCITY = 2;
@@ -28,6 +28,45 @@ enum class CameraAction {
 };
 
 /**
+ * @brief The Plane class
+ *
+ * Based on learnopengl.com.
+ */
+struct Plane {
+    glm::vec3 normal = { 0.f, 1.f, 0.f }; // unit vector
+    float distance = 0.f; // Distance with origin
+
+    Plane() = default;
+
+    Plane(const glm::vec3& p1, const glm::vec3& norm)
+        : normal(glm::normalize(norm))
+        , distance(glm::dot(normal, p1))
+    {
+    }
+
+    float getSignedDistanceToPlane(const glm::vec3& point) const
+    {
+        return glm::dot(normal, point) - distance;
+    }
+};
+
+/**
+ * @brief The Frustum class
+ *
+ * Based on learnopengl.com
+ */
+struct Frustum {
+    Plane topFace;
+    Plane bottomFace;
+
+    Plane rightFace;
+    Plane leftFace;
+
+    Plane farFace;
+    Plane nearFace;
+};
+
+/**
  * @brief Encapsulates a moving camera with various direction and position vectors.
  *
  * The basic structure of this class is based on the Camera class from
@@ -35,25 +74,42 @@ enum class CameraAction {
  */
 class Camera {
 public:
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH);
-    Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch);
-    glm::mat4 getViewMatrix();
-    float getZoom();
-    glm::vec3 getPosition();
+    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float zNear = 0.0f, float zFar = 0.0f, float aspectRatio = 1.0f, float yaw = YAW, float pitch = PITCH);
+    // Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float zNear, float zFar, float aspectRatio, float yaw, float pitch);
+
     void processKeyboard(CameraAction direction, float deltaTime);
-    // void processMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
+    void updateFrustum();
+
+    /* Getters */
+    glm::mat4 getViewMatrix();
+    glm::vec3 front();
+    glm::vec3 position();
+    float zoom();
+
+    /* Setters */
+    void aspectRatio(float aspectRatio);
+
+    /* Whether the terrain LOD algorithm should continue with the
+     * current camera state*/
+    bool frozen = false;
+
+    Frustum viewFrustum;
 
 private:
-    glm::vec3 position;
-    glm::vec3 front;
-    glm::vec3 up;
-    glm::vec3 right;
-    glm::vec3 worldUp;
-    float yaw;
-    float pitch;
-    float movementSpeed;
-    float zoom;
     void updateCameraVectors();
+
+    glm::vec3 _position;
+    glm::vec3 _front;
+    glm::vec3 _up;
+    glm::vec3 _right;
+    glm::vec3 _worldUp;
+    float _zNear;
+    float _zFar;
+    float _aspectRatio;
+    float _yaw;
+    float _pitch;
+    float _movementSpeed;
+    float _zoom;
 };
 
 #endif // CAMERA_H

@@ -51,7 +51,8 @@ number of triangle changes per frame.
 
 \section{GeoMipMapping}
 \textit{Geometrical Mipmapping (GeoMipMapping)} is a terrain LOD approach developed by de Boer \cite{geomipmapping} in the year 2000. 
-It applies the idea of texture mipmapping to terrain rendering.
+It applies the idea of texture mipmapping to terrain rendering. In this section, all 
+presented ideas are from the original paper, unless noted otherwise.
 
 \subsection{General Idea}
 The central idea of GeoMipMapping is its analogy to texture mipmapping: just like how textures of far away objects are rendered using lower resolution texture mipmaps,
@@ -84,20 +85,18 @@ Figure~\ref{fig:geomipmapping-patch-example} illustrates the above example.
 \end{figure}
 
 \subsection{View-frustum Culling}
-Blocks that are outside of the view-frustum can be left out completely, thereby dramatically decreasing the number 
-of vertices that need to get rendered.
+The organisation of the terrain into blocks allows for easy view-frustum culling,
+which dramatically decreases the number of vertices that need to get rendered.
+
 
 \subsection{LOD Selection}
 The LOD for each block is selected at runtime and is based on a 
 
 \subsection{Avoiding Cracks}
-
 GeoMipMapping avoids cracks by checking whether the
 current block has a higher LOD than the bordering block and if this is the case,
 it omits the vertices that would cause the crack.
-
-In the original GeoMipMapping paper,
-the vertex omission is performed by rendering the bordering row/column of the current block
+The vertex omission is performed by rendering the bordering row/column of the current block
 as triangle fans, as shown in figure~\ref{fig:geomipmapping-crack-avoidance}.
 
 \begin{figure}[H]
@@ -106,9 +105,9 @@ as triangle fans, as shown in figure~\ref{fig:geomipmapping-crack-avoidance}.
   \caption{Example of GeoMipMapping's crack avoidance between a LOD 2 and a LOD 1 GeoMipMap of two $5 \times 5$ blocks as described in the original paper.}\label{fig:geomipmapping-crack-avoidance}
 \end{figure}
 
-An alternative way to render neighboring blocks with different LOD levels is to render the triangle fans from the center point of each $3 \times 3$ border subblock. 
-This approach is somewhat simpler for handling special cases, e.g. when both the top and right neighboring blocks have a lower LOD,
-as shown shown in figure~\ref{fig:geomipmapping-crack-avoidance-alternative}.
+% An alternative way to render neighboring blocks with different LOD levels is to render the triangle fans from the center point of each $3 \times 3$ border subblock. 
+% This approach is somewhat simpler for handling special cases, e.g. when both the top and right neighboring blocks have a lower LOD,
+% as shown shown in figure~\ref{fig:geomipmapping-crack-avoidance-alternative}.
 
 %\begin{figure}[H]
 %  \centering
@@ -136,10 +135,14 @@ GeoMipMapping can be extended with vertex morphing in order to decrease popping.
 
 
 \section{Geometry Clipmaps}
-TODO
+Geometry Clipmaps is a terrain rendering technique published by Hoppe and Losasso in TODO.
+The follow-up GPU-based 
 
 %\section{CDLOD}
 %TODO
+
+\section{Concurrent Binary Trees}
+TODO
 
 \section{GPU Tessellation Shaders}
 

@@ -9,15 +9,28 @@
 class Heightmap {
 
 public:
-    std::vector<unsigned int> data;
-    unsigned int width;
-    unsigned int height;
+    // Heightmap(unsigned width, unsigned height);
+    Heightmap();
+    void load(std::string& fileName);
+    void loadImage(std::string& fileName);
+    void loadAsciiGrid(std::string& fileName);
+    void loadXyz(std::string& fileName);
 
-    Heightmap(unsigned int width, unsigned int height);
-    unsigned int at(unsigned int x, unsigned int z);
-    void push(unsigned int heightValue);
+    /* TODO: procedureal generation */
+    void generate();
 
-    // int loadData(std::string& fileName);
+    /* Getters */
+    unsigned width();
+    unsigned height();
+
+    unsigned at(unsigned x, unsigned z);
+    void push(unsigned heightValue);
+    void clear();
+
+private:
+    std::vector<unsigned> _data;
+    unsigned _width;
+    unsigned _height;
 };
 
 #endif // HEIGHTMAP_H

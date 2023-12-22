@@ -1,7 +1,6 @@
 #ifndef APPLICATION_H
 #define APPLICATION_H
 
-#include "camera.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -19,15 +18,16 @@ enum ColorMode {
 };
 
 /**
- * @brief The CurrentTerrain enum
+ * @brief The ActiveTerrain enum
  */
-enum CurrentTerrain {
+enum ActiveTerrain {
     NAIVE = 0,
     GEOMIPMAPPING = 1
 };
 
 int setup();
 int run();
+void shutDown();
 void processInput();
 void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action, int modifiers);
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
