@@ -1,8 +1,8 @@
 #version 330 core
 
-in float Mode;
-in vec3 Normal;
-in vec2 TexCoord;
+//in float Mode;
+//in vec3 Normal;
+//in vec2 TexCoord;
 in vec3 FragPosition;
 
 out vec4 FragColor;
@@ -16,10 +16,26 @@ uniform float doTexture;
 uniform vec3 skyColor;
 uniform vec3 terrainColor;
 uniform float doFog;
+uniform float fogDensity;
+
+uniform sampler2D heightmapTexture;
+//uniform usampler2D heightmapTexture;
+
+uniform float textureWidth;
+uniform float textureHeight;
+uniform float cutOffX;
+uniform float cutOffY;
+
+uniform float maxT;
+uniform float minT;
 
 vec3 calculateAmbient(vec3 lightColor, float strength);
 vec3 calculateDiffuse(vec3 lightColor);
 float calculateFog(float density);
+
+uniform float yScale;
+uniform float yShift;
+
 
 void main()
 {
@@ -29,16 +45,20 @@ void main()
     float useWire = rendersettings.y;
 
    if (useWire < 0.5f) {
-       if (doTexture > 0.5) color = texture(texture1, TexCoord).xyz;
+       vec2 texPos = vec2((FragPosition.x + 0.5 * textureWidth)/ (textureWidth),
+                          (FragPosition.z + 0.5 * textureHeight)/ (textureHeight));
+
+       if (doTexture > 0.5) color = texture(texture1, texPos).xyz;
        else color = terrainColor;
 
-       vec3 ambient = calculateAmbient(lightColor, 0.5f);
+       //vec3 ambient = calculateAmbient(lightColor, 0.5f);
+       vec3 ambient = vec3(0,0,0);
        vec3 diffuse = calculateDiffuse(lightColor);
        color = (ambient + diffuse) * color;
 
        if (doFog > 0.5) {
            vec3 fogColour = skyColor;
-           float fogFactor = calculateFog(0.0005);
+           float fogFactor = calculateFog(fogDensity);
            color = mix(fogColour, color, fogFactor);
        }
 
@@ -53,7 +73,19 @@ vec3 calculateAmbient(vec3 lightColor, float strength) {
 }
 
 vec3 calculateDiffuse(vec3 lightColor) {
-    vec3 norm = normalize(Normal);
+    vec2 texPos = vec2((FragPosition.x + 0.5 * textureWidth)/ (textureWidth),
+                       (FragPosition.z + 0.5 * textureHeight)/ (textureHeight));
+
+    float leftHeight = texture(heightmapTexture, texPos - vec2(1.0 / textureWidth, 0)).r;
+    float rightHeight = texture(heightmapTexture, texPos + vec2(1.0 / textureWidth, 0)).r;
+    float upHeight = texture(heightmapTexture, texPos + vec2(0, 1.0 / textureHeight)).r;
+    float downHeight = texture(heightmapTexture, texPos - vec2(0, 1.0 / textureHeight)).r;
+
+    float dx = (leftHeight - rightHeight) * yScale * 65535;
+    float dz = (downHeight - upHeight) * yScale * 65535;
+
+    vec3 norm = normalize(vec3(dx, 2.0f, dz));
+
     vec3 lightDir = normalize(-lightDirection);
 
     float diff = max(dot(norm, lightDir), 0.0f);
@@ -67,4 +99,3 @@ float calculateFog(float density) {
     float fogFactor = exp(-density * dist);
     return clamp(fogFactor, 0.0f, 1.0f);
 }
-

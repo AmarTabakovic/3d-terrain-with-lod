@@ -6,7 +6,227 @@
 
 #include <chrono>
 
-GeoMipMapping::GeoMipMapping(Heightmap heightmap, float xzScale, float yScale, unsigned blockSize)
+void GeoMipMapping::loadBuffers()
+{
+    loadVertices();
+    loadIndices();
+}
+
+void GeoMipMapping::loadVertices()
+{
+    for (int i = 0; i < _blockSize; i++) {
+        for (int j = 0; j < _blockSize; j++) {
+            /* Load vertices around center point */
+            float x = (-(float)_blockSize / 2.0f + (float)_blockSize * j / (float)_blockSize);
+            float z = (-(float)_blockSize / 2.0f + (float)_blockSize * i / (float)_blockSize);
+
+            _vertices.push_back(x); /* Position x */
+            _vertices.push_back(z); /* Position z */
+        }
+    }
+
+    glGenVertexArrays(1, &_vao);
+    glBindVertexArray(_vao);
+
+    glGenBuffers(1, &_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, _vbo);
+    glBufferData(GL_ARRAY_BUFFER, _vertices.size() * sizeof(float), &_vertices[0], GL_STATIC_DRAW);
+
+    /* Position attribute */
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+}
+
+void GeoMipMapping::loadIndices()
+{
+    unsigned totalCount = 0;
+
+    if (_minLod == 0) {
+        /* ========================== Load LOD 0 block ==========================*/
+        unsigned lod0Count = loadLod0Block();
+        totalCount += lod0Count;
+
+        /* For LOD 0, the (single) border block is always the same */
+        for (int i = 0; i < 16; i++) {
+            borderStarts.push_back(totalCount - lod0Count);
+            borderSizes.push_back(lod0Count);
+        }
+
+        /* LOD 0 border block does not have a center */
+        centerStarts.push_back(0);
+        centerSizes.push_back(0);
+    }
+
+    if (_minLod == 0 || _minLod == 1) {
+
+        /* ========================== Load LOD 1 block ==========================*/
+        for (unsigned i = 0; i < 16; i++) {
+            unsigned lod1Count = loadLod1Block(i);
+            totalCount += lod1Count;
+            borderStarts.push_back(totalCount - lod1Count);
+            borderSizes.push_back(lod1Count);
+        }
+
+        /* LOD 1 border block does not have a center */
+        centerStarts.push_back(0);
+        centerSizes.push_back(0);
+        // block.geoMipMaps.push_back(GeoMipMap(1));
+    }
+
+    /* ============================= Load rest ==============================*/
+    for (unsigned i = std::max(_minLod, 2u) /*2*/; i <= _maxLod; i++) {
+        /* Load border subblocks */
+        unsigned borderCount = loadBorderAreaForLod(i, totalCount);
+
+        totalCount += borderCount;
+
+        /* Load center subblocks */
+        unsigned centerCount = loadCenterAreaForLod(i);
+        totalCount += centerCount;
+        centerStarts.push_back(totalCount - centerCount);
+    }
+
+    std::cout << indices.size() << std::endl;
+
+    glGenBuffers(1, &_ebo);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned), &indices[0], GL_STATIC_DRAW);
+}
+
+/**
+ * @brief GeoMipMapping::render
+ * @param camera
+ */
+void GeoMipMapping::render(Camera camera)
+{
+    shader().use();
+    shader().setFloat("yScale", _yScale);
+
+    glEnable(GL_PRIMITIVE_RESTART);
+    glPrimitiveRestartIndex(RESTART_INDEX);
+
+    if (!_freezeCamera)
+        _lastCamera = camera;
+
+    /* ================================ First pass ===============================
+     * - For each block:
+     *   - Check and update the distance to camera
+     *   - Update the LOD level
+     *   - Update the neighborhood border bitmap */
+    for (unsigned i = 0; i < _nBlocksZ; i++) {
+        for (unsigned j = 0; j < _nBlocksX; j++) {
+            GeoMipMappingBlock& block = getBlock(j, i);
+
+            glm::vec3 temp = block._trueCenter - _lastCamera.position();
+            float squaredDistance = glm::dot(temp, temp);
+
+            //block._squaredDistanceToCamera = squaredDistance;
+            //unsigned currentLod = block._currentLod;
+            if (!_lodActive)
+                block._currentLod = _maxLod;
+            else if (!_freezeCamera)
+                block._currentLod = determineLodDistance(squaredDistance, _baseDistance, _doubleDistanceEachLevel);
+
+            block._currentBorderBitmap = calculateBorderBitmap(block._blockId, j, i);
+        }
+    }
+
+    glBindVertexArray(_vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _ebo);
+
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, heightmapTextureId);
+    shader().setInt("heightmapTexture", 1);
+
+    // TODO
+    // root.render(camera);
+
+    /* ============================== Second pass =============================
+     * - For each block:
+     *   - Check frustum culling
+     *   - Render center and border subblocks
+     */
+    for (unsigned i = 0; i < _nBlocksZ; i++) {
+        for (unsigned j = 0; j < _nBlocksX; j++) {
+            //glActiveTexture(GL_TEXTURE1);
+            //glBindTexture(GL_TEXTURE_2D, heightmapTextureId);
+            //shader().setInt("heightmapTexture", 1);
+            GeoMipMappingBlock& currblock = getBlock(j, i);
+
+            if (_hasTexture) {
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, _textureId);
+                shader().setFloat("doTexture", 1.0f);
+            } else
+                shader().setFloat("doTexture", 0.0f);
+
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, _heightmap.heightmapTextureId());
+
+            /* TODO:
+             * - Collect visible blocks in first pass
+             * - Quadtrees */
+            if (_frustumCullingActive && !currblock.insideViewFrustum(_lastCamera))
+               continue;
+
+            unsigned currentIndex = currblock._currentLod;
+
+            float r = 0.3f, g = 0.3f, b = 0.3f;
+
+            if (currblock._currentLod % 3 == 0)
+                r = 0.7f;
+            else if (currblock._currentLod % 3 == 1)
+                g = 0.7f;
+            else
+                b = 0.7f;
+
+            shader().setVec4("inColor", glm::vec4(r, g, b, 1.0f));
+
+            shader().setFloat("textureWidth", _heightmap.width());
+            shader().setFloat("textureHeight", _heightmap.height());
+            shader().setVec2("offset", currblock.translation);
+
+            shader().setFloat("maxT", _heightmap.max);
+            shader().setFloat("minT", _heightmap.min);
+
+            currentIndex -= _minLod;
+
+            /* First render the center subblocks (only for LOD >= 2, since
+             * LOD 0 and 1 do not have a center block) */
+            if (currblock._currentLod >= 2) {
+                glDrawElements(GL_TRIANGLE_STRIP,
+                    centerSizes[currentIndex],
+                    GL_UNSIGNED_INT,
+                    (void*)(centerStarts[currentIndex] * sizeof(unsigned)));
+            }
+
+            /* Then render the border subblocks
+             * Note: This couild probably be optimized with
+             * glMultiDrawElements() */
+            currentIndex = currentIndex * 16 + currblock._currentBorderBitmap;
+            glDrawElements(GL_TRIANGLE_STRIP,
+                borderSizes[currentIndex],
+                GL_UNSIGNED_INT,
+                (void*)(borderStarts[currentIndex] * sizeof(unsigned)));
+        }
+    }
+
+    AtlodUtil::checkGlError("GeoMipMapping render failed");
+}
+
+/**
+ * @brief GeoMipMapping::GeoMipMapping
+ *
+ * If numLods >= maxLod, then numLods gets ignored during index loading.
+ *
+ * @param heightmap
+ * @param xzScale
+ * @param yScale
+ * @param blockSize
+ * @param numLods
+ */
+GeoMipMapping::GeoMipMapping(Heightmap heightmap, float xzScale, float yScale, unsigned blockSize, unsigned minLod, unsigned maxLod)
 {
     std::cout << "Initialize GeoMipMapping" << std::endl;
 
@@ -22,29 +242,87 @@ GeoMipMapping::GeoMipMapping(Heightmap heightmap, float xzScale, float yScale, u
     _nBlocksZ = std::floor((heightmap.height() - 1) / (blockSize - 1));
 
     /* Plus one is important */
-    this->_width = _nBlocksX * (blockSize - 1) + 1;
-    this->_height = _nBlocksZ * (blockSize - 1) + 1;
+    _width = _nBlocksX * (blockSize - 1) + 1;
+    _height = _nBlocksZ * (blockSize - 1) + 1;
+
+    /* Check whether block size is of the form 2^n + 1*/
+    if (((blockSize - 1) & (blockSize - 2)) != 0) {
+        std::cerr << "Block size must be of the form 2^n + 1";
+        std::exit(1);
+    }
 
     /* Calculate maximum LOD level */
-    _maxLod = std::log2(blockSize - 1);
+    _maxPossibleLod = std::log2(blockSize - 1);
 
+    /* Calculate user defined LOD level bounds */
+    _maxLod = std::min(maxLod, _maxPossibleLod);
+    _minLod = std::max(0u, minLod);
+
+    if (_minLod > maxLod) {
+        std::cerr << "Error: Max LOD cannot be less than Min LOD" << std::endl;
+        std::exit(1);
+    }
+
+    //loadHeightmapTexture();
+    //_heightmap.generateGlTexture();
+    shader().use();
+    shader().setInt("texture1", 0);
+    shader().setInt("heightmapTexture", 1);
+
+    glm::vec2 terrainCenter(_width / 2.0f, _height / 2.0f);
+    /* Generate blocks */
     for (unsigned i = 0; i < _nBlocksZ; i++) {
         for (unsigned j = 0; j < _nBlocksX; j++) {
-            unsigned currentBlock = i * _nBlocksX + j;
-            unsigned startIndex = i * _width * (blockSize - 1) + (j * (blockSize - 1));
+            /* Determine min and max y-coordinates per block for the AABB */
+            float minY = 9999999.0f, maxY = -9999999.0f;
 
-            float x = (j * (_blockSize - 1) + 0.5 * (_blockSize - 1));
-            float z = (i * (_blockSize - 1) + 0.5 * (_blockSize - 1));
+            for (unsigned k = 0; k < blockSize; k++) {
+                for (unsigned l = 0; l < blockSize; l++) {
+                    float x = (j * (blockSize - 1)) + l;
+                    float z = (i * (blockSize - 1)) + k;
 
-            float y = heightmap.at(x, z);
-            glm::vec3 blockCenter(((-(int)_width * _xzScale) / 2) + x * _xzScale, y * _yScale, ((-(int)_height * _xzScale) / 2) + z * _xzScale);
+                    float y = heightmap.at(x, z);
+                    minY = std::min(y, minY);
+                    maxY = std::max(y, maxY);
+                }
+            }
 
-            GeoMipMappingBlock block = GeoMipMappingBlock(currentBlock, startIndex, blockCenter, _blockSize);
-            block.terrain = this;
+            unsigned currentBlockId = i * _nBlocksX + j;
+
+            float centerX = (j * (_blockSize - 1) + 0.5 * (_blockSize - 1));
+            float centerZ = (i * (_blockSize - 1) + 0.5 * (_blockSize - 1));
+
+            float trueY = heightmap.at(centerX, centerZ) * yScale;
+            float aabbY = minY * yScale + ((maxY * yScale - minY * yScale) / (2.0f * yScale));
+
+            glm::vec3 aabbCenter(((-(float)_width * _xzScale) / 2.0f) + centerX * _xzScale, aabbY, ((-(float)_height * _xzScale) / 2.0f) + centerZ * _xzScale);
+            glm::vec3 blockCenter(aabbCenter.x, trueY, aabbCenter.z);
+
+            GeoMipMappingBlock block = GeoMipMappingBlock(currentBlockId, blockCenter, aabbCenter, _blockSize);
+            block._minY = minY;
+            block._maxY = maxY;
+            block.translation = glm::vec2(centerX, centerZ) - terrainCenter;
+
+            //std::cout << "===== BLOCK " << currentBlock << " =====\n";
+            //std::cout << "x, y: " << j << ", " << i << std::endl;
+            //std::cout << "blockCenter: " << blockCenter.x << ", " << blockCenter.y << ", " << blockCenter.z << std::endl;
 
             _blocks.push_back(block);
         }
     }
+    std::cout << "Finished blocks\n";
+    // TODO
+    // root.build();
+}
+
+unsigned GeoMipMapping::nBlocksX()
+{
+    return _nBlocksX;
+}
+
+unsigned GeoMipMapping::nBlocksZ()
+{
+    return _nBlocksZ;
 }
 
 /**
@@ -86,6 +364,16 @@ unsigned GeoMipMapping::calculateBorderBitmap(unsigned currentBlockId, unsigned 
     return bitmap;
 }
 
+void GeoMipMapping::baseDistance(float baseDistance)
+{
+    _baseDistance = baseDistance;
+}
+
+void GeoMipMapping::doubleDistanceEachLevel(bool doubleDistanceEachLevel)
+{
+    _doubleDistanceEachLevel = doubleDistanceEachLevel;
+}
+
 /**
  * @brief GeoMipMapping::getBlock
  *
@@ -100,100 +388,6 @@ GeoMipMappingBlock& GeoMipMapping::getBlock(unsigned x, unsigned z)
     return _blocks[z * _nBlocksX + x];
 }
 
-/**
- * @brief Updates and renders the entire GeoMipMapping terrain.
- *
- * This method is called each frame.
- *
- * @param camera - the viewing camera
- */
-void GeoMipMapping::render(Camera camera)
-{
-    glEnable(GL_PRIMITIVE_RESTART);
-    glPrimitiveRestartIndex(RESTART_INDEX);
-
-    if (!camera.frozen)
-        _lastCamera = camera;
-
-    /* ================================ First pass ===============================
-     * - For each block:
-     *   - Check and update the distance to camera
-     *   - Update the LOD level
-     *   - Update the neighborhood border bitmap */
-    for (unsigned i = 0; i < _nBlocksZ; i++) {
-        for (unsigned j = 0; j < _nBlocksX; j++) {
-            GeoMipMappingBlock& block = getBlock(j, i);
-
-            glm::vec3 temp = block._center - _lastCamera.position();
-            float squaredDistance = glm::dot(temp, temp);
-
-            block._squaredDistanceToCamera = squaredDistance;
-            block._currentLod = determineLodDistance(squaredDistance, _baseDistance, false /*true */);
-            block._currentBorderBitmap = calculateBorderBitmap(block._blockId, j, i);
-        }
-    }
-
-    if (_hasTexture) {
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, _textureId);
-        shader().setFloat("doTexture", 1.0f);
-    } else
-        shader().setFloat("doTexture", 0.0f);
-
-    glBindVertexArray(_vao);
-
-    /* ============================== Second pass =============================
-     * - For each block:
-     *   - Check frustum culling
-     *   - Render center and border subblocks
-     */
-    for (unsigned i = 0; i < _nBlocksZ; i++) {
-        for (unsigned j = 0; j < _nBlocksX; j++) {
-            GeoMipMappingBlock& block = getBlock(j, i);
-
-            /* TODO:
-             * - Collect visible blocks in first pass
-             * - Quadtrees */
-            if (!block.insideViewFrustum(_lastCamera))
-                continue;
-
-            unsigned currentIndex = block._currentLod;
-
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, block._ebo);
-
-            float r = 0.3f, g = 0.3f, b = 0.3f;
-
-            if (block._currentLod % 3 == 0)
-                r = 0.7f;
-            else if (block._currentLod % 3 == 1)
-                g = 0.7f;
-            else
-                b = 0.7f;
-
-            shader().setVec4("inColor", glm::vec4(r, g, b, 1.0f));
-
-            /* First render the center subblocks (only for LOD >= 2, since
-             * LOD 0 and 1 do not have a center block) */
-            if (block._currentLod >= 2) {
-                glDrawElements(GL_TRIANGLE_STRIP,
-                    block.centerSizes[currentIndex],
-                    GL_UNSIGNED_INT,
-                    (void*)(block.centerStarts[currentIndex] * sizeof(unsigned)));
-            }
-
-            /* Then render the border subblocks
-             * Note: This couild probably be optimized with
-             * glMultiDrawElements() */
-            currentIndex = currentIndex * 16 + block._currentBorderBitmap;
-            glDrawElements(GL_TRIANGLE_STRIP,
-                block.borderSizes[currentIndex],
-                GL_UNSIGNED_INT,
-                (void*)(block.borderStarts[currentIndex] * sizeof(unsigned)));
-        }
-    }
-
-    AtlodUtil::checkGlError("GeoMipMapping render failed");
-}
 
 /**
  * @brief Determines the LOD level using the distance from the camera and a
@@ -207,7 +401,7 @@ void GeoMipMapping::render(Camera camera)
 unsigned GeoMipMapping::determineLodDistance(float distance, float baseDist, bool doubleEachLevel)
 {
     unsigned distancePower = 1;
-    for (int i = 0; i < _maxLod; i++) {
+    for (int i = 0; i < _maxLod - _minLod; i++) {
         if (distance < distancePower * distancePower * baseDist * baseDist)
             return _maxLod - i;
 
@@ -216,319 +410,37 @@ unsigned GeoMipMapping::determineLodDistance(float distance, float baseDist, boo
         else
             distancePower++;
     }
-    return 0;
+    return _minLod; // 0
 }
 
-/**
- * @brief Detemrines the LOD level using the approach mentioned in the
- *        original GeoMipMapping paper.
- * @param distance
- * @return
- */
-unsigned GeoMipMapping::determineLodPaper(float distance)
+void GeoMipMapping::pushIndex(unsigned x, unsigned y)
 {
-    return 0;
-}
-
-/**
- * @brief GeoMipMapping::loadBuffers
- *
- * This method should be called once before entering the main rendering loop.
- *
- * TODO: When loading indices, calculate deltas for LOD selection
- */
-void GeoMipMapping::loadBuffers()
-{
-    //int signedHeight = (int)_height;
-    //int signedWidth = (int)_width;
-    int signedWidth = (int)_heightmap.width();
-    int signedHeight = (int)_heightmap.height();
-
-    glGenVertexArrays(1, &_vao);
-    glBindVertexArray(_vao);
-
-    loadIndices();
-
-    loadNormals();
-
-    /* Set up vertex buffer */
-
-    /* In order to load vertices centered around the zero point,
-     * TODO
-     */
-    int widthDiff = _heightmap.width() - _width;
-    int heightDiff = _heightmap.height() - _height;
-
-    int padXBegin, padXEnd, padYBegin, padYEnd;
-
-    padYBegin = std::floor((float)heightDiff / 2.0f);
-    padXBegin = std::floor((float)widthDiff / 2.0f);
-    padYEnd = padYBegin;
-    padXEnd = padXBegin;
-
-    if (widthDiff % 2 != 0) /* Width difference is odd */
-        padXEnd++;
-
-    if (heightDiff % 2 != 0) /* Height difference is odd */
-        padYEnd++;
-
-    for (unsigned i = padYBegin; i < _heightmap.height() - padYEnd; i++) {
-        for (unsigned j = padXBegin; j < _heightmap.width() - padXEnd; j++) {
-            float y = _heightmap.at(j, i);
-
-            /* Load vertices around center point
-             * TODO: Maybe do not center here, but in the view matrix? */
-            float x = (-signedWidth / 2.0f + signedWidth * j / (float)signedWidth);
-            float z = (-signedHeight / 2.0f + signedHeight * i / (float)signedHeight);
-
-            glm::vec3 normal = _normals[i * _width + j];
-
-            _vertices.push_back(x); /* position x */
-            _vertices.push_back(y); /* position y */
-            _vertices.push_back(z); /* position z */
-            _vertices.push_back(normal.x); /* normal x */
-            _vertices.push_back(normal.y); /* normal y */
-            _vertices.push_back(normal.z); /* normal z */
-            _vertices.push_back((float)(j ) / (float)(_heightmap.width())); /* texture x */
-            _vertices.push_back((float)(i ) /(float)(_heightmap.height())); /* texture y */
-        }
-    }
-
-    glGenBuffers(1, &_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, _vbo);
-    glBufferData(GL_ARRAY_BUFFER, _vertices.size() * sizeof(float), &_vertices[0], GL_STATIC_DRAW);
-
-    /* Position attribute */
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    /* Normal attribute */
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    /* Texture attribute */
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-
-    /* Vertices, indces and normals were loaded to the GPU, clear them */
-    _normals.clear();
-    _normals.shrink_to_fit();
-    _vertices.clear();
-    _vertices.shrink_to_fit();
-    for (auto& block : _blocks) {
-        block.indices.clear();
-        block.indices.shrink_to_fit();
-    }
-
-    AtlodUtil::checkGlError("GeoMipMapping load failed");
-}
-
-/**
- * @brief Helper function for calculating and adding the normals
- *        of a triangle face.
- * @param j
- * @param i
- * @param isBottomRight
- */
-void GeoMipMapping::calculateNormal(unsigned j, unsigned i, bool isBottomRight)
-{
-    int signedHeight = (int)_height;
-    int signedWidth = (int)_width;
-
-    int offset = 1;
-    if (isBottomRight) {
-        j++;
-        i++;
-        offset = -1;
-    }
-
-    float y = _heightmap.at(j, i);
-    float x = (-signedWidth / 2.0f + signedWidth * j / (float)signedWidth);
-    float z = (-signedHeight / 2.0f + signedHeight * i / (float)signedHeight);
-
-    glm::vec3 v0(x, y, z);
-
-    float y1 = _heightmap.at(j + offset, i);
-    float x1 = (-signedWidth / 2.0f + signedWidth * (j + offset) / (float)signedWidth);
-    float z1 = z;
-
-    float y2 = _heightmap.at(j, i + offset);
-    float x2 = x;
-    float z2 = (-signedHeight / 2.0f + signedHeight * (i + offset) / (float)signedHeight);
-
-    glm::vec3 v1(x1, y1, z1);
-    glm::vec3 v2(x2, y2, z2);
-
-    glm::vec3 a = v1 - v0;
-    glm::vec3 b = v2 - v0;
-
-    glm::vec3 normal = glm::cross(b, a);
-
-    _normals[i * _width + j] += normal;
-    _normals[i * _width + j + offset] += normal;
-    _normals[(i + offset) * _width + j] += normal;
-}
-
-/**
- * @brief GeoMipMapping::loadNormals
- *
- * This normal calculating method is based on SLProject's calcNormals() method.
- * SLProject is developed at the Bern University of Applied Sciences.
- *
- * TODO: Define method in Terain superclass
- */
-void GeoMipMapping::loadNormals()
-{
-
-    _normals.resize(_height * _width);
-
-    /* TODO: Refactor the below into a method i.e. constructor? */
-    unsigned widthDiff = _heightmap.width() - _width;
-    unsigned heightDiff = _heightmap.height() - _height;
-
-    unsigned padXBegin, padXEnd, padYBegin, padYEnd;
-
-    padYBegin = std::floor((float)heightDiff / 2.0f);
-    padXBegin = std::floor((float)widthDiff / 2.0f);
-    padYEnd = padYBegin;
-    padXEnd = padXBegin;
-
-    if (widthDiff % 2 != 0) /* Width difference is odd */
-        padXEnd++;
-
-    if (heightDiff % 2 != 0) /* Height difference is odd */
-        padYEnd++;
-
-    for (unsigned i = 0; i < _height - 1; i++) {
-        for (unsigned j = 0; j < _width - 1; j++) {
-            _normals.push_back(glm::vec3(0.0f));
-        }
-    }
-
-    /* Load normals for every vertex */
-    //    for (unsigned i = 0; i < _height - 1; i++) {
-    //        for (unsigned j = 0; j < _width - 1; j++) {
-    //            calculateNormal(j, i, false);
-    //            calculateNormal(j, i, true);
-    //        }
-    //    }
-
-    for (unsigned i = padYBegin; i < _heightmap.height() - padYEnd - 1; i++) {
-        for (unsigned j = padXBegin; j < _heightmap.width() - padXEnd - 1; j++) {
-            calculateNormal(j, i, false);
-            calculateNormal(j, i, true);
-        }
-    }
-
-    for (int i = 0; i < _normals.size(); i++) {
-        _normals[i] = glm::normalize(_normals[i]);
-    }
-}
-
-/**
- * @brief Loads the indices for each block.
- */
-void GeoMipMapping::loadIndices()
-{
-    for (unsigned i = 0; i < _nBlocksZ; i++) {
-        for (unsigned j = 0; j < _nBlocksX; j++) {
-            unsigned currentBlock = i * _nBlocksX + j;
-
-            loadGeoMipMapsForBlock(_blocks[currentBlock]);
-        }
-    }
-}
-
-/**
- * @brief GeoMipMapping::loadGeoMipMapsForBlock
- * @param block
- */
-void GeoMipMapping::loadGeoMipMapsForBlock(GeoMipMappingBlock& block)
-{
-    unsigned totalCount = 0;
-
-    if (_nIndicesPerBlock != 0)
-        block.indices.reserve(_nIndicesPerBlock);
-
-    /* ========================== Load LOD 0 block ==========================*/
-    unsigned lod0Count = loadLod0Block(block);
-    totalCount += lod0Count;
-
-    /* For LOD 0, the (single) border block is always the same */
-    for (int i = 0; i < 16; i++) {
-        block.borderStarts.push_back(totalCount - lod0Count);
-        block.borderSizes.push_back(lod0Count);
-    }
-
-    /* LOD 0 border block does not have a center */
-    block.centerStarts.push_back(0);
-    block.centerSizes.push_back(0);
-    block.geoMipMaps.push_back(GeoMipMap(0));
-
-    /* ========================== Load LOD 1 block ==========================*/
-    for (unsigned i = 0; i < 16; i++) {
-        unsigned lod1Count = loadLod1Block(block, i);
-        totalCount += lod1Count;
-        block.borderStarts.push_back(totalCount - lod1Count);
-        block.borderSizes.push_back(lod1Count);
-    }
-
-    /* LOD 1 border block does not have a center */
-    block.centerStarts.push_back(0);
-    block.centerSizes.push_back(0);
-    block.geoMipMaps.push_back(GeoMipMap(1));
-
-    /* ============================= Load rest ==============================*/
-    for (unsigned i = 2; i <= _maxLod; i++) {
-        /* Load border subblocks */
-        unsigned borderCount = loadBorderAreaForLod(block,
-            block._startIndex, i,
-            totalCount);
-
-        totalCount += borderCount;
-
-        /* Load center subblocks */
-        unsigned centerCount = loadCenterAreaForLod(block, block._startIndex, i);
-        totalCount += centerCount;
-
-        block.centerStarts.push_back(totalCount - centerCount);
-
-        block.geoMipMaps.push_back(GeoMipMap(i));
-    }
-
-    if (_nIndicesPerBlock == 0)
-        _nIndicesPerBlock = block.indices.size();
-
-    glGenBuffers(1, &block._ebo);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, block._ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, block.indices.size() * sizeof(unsigned), &block.indices[0], GL_STATIC_DRAW);
+    indices.push_back(y * _blockSize + x);
 }
 
 /**
  * @brief GeoMipMapping::loadCenterAreaForLod
  * @param block
  * @param startIndex
- * @param lod the current LOD levell
+ * @param lod the current LOD level
  * @return the total number of indices loaded
  */
-unsigned GeoMipMapping::loadCenterAreaForLod(GeoMipMappingBlock& block, unsigned startIndex, unsigned lod)
+unsigned GeoMipMapping::loadCenterAreaForLod(unsigned lod)
 {
     unsigned step = std::pow(2, _maxLod - lod);
-
     unsigned count = 0;
 
     for (unsigned i = step; i < _blockSize - step - 1; i += step) {
         for (unsigned j = step; j < _blockSize - step; j += step) {
-            block.indices.push_back(block.getRelativeIndex(_width, j, i));
-            block.indices.push_back(block.getRelativeIndex(_width, j, i + step));
+            pushIndex(j, i);
+            pushIndex(j, i + step);
             count += 2;
         }
-        block.indices.push_back(RESTART_INDEX);
+        indices.push_back(RESTART_INDEX);
         count++;
     }
 
-    block.centerSizes.push_back(count);
+    centerSizes.push_back(count);
 
     return count;
 }
@@ -540,16 +452,16 @@ unsigned GeoMipMapping::loadCenterAreaForLod(GeoMipMappingBlock& block, unsigned
  * @param lod
  * @return
  */
-unsigned GeoMipMapping::loadBorderAreaForLod(GeoMipMappingBlock& block, unsigned startIndex, unsigned lod, unsigned accumulatedCount)
+unsigned GeoMipMapping::loadBorderAreaForLod(unsigned lod, unsigned accumulatedCount)
 {
     unsigned totalCount = 0;
 
     /* 2^4 = 16 possible combinations */
     for (int i = 0; i < 16; i++) {
-        unsigned count = loadBorderAreaForConfiguration(block, startIndex, lod, i);
+        unsigned count = loadBorderAreaForConfiguration(lod, i);
         totalCount += count;
         accumulatedCount += count;
-        block.borderStarts.push_back(accumulatedCount - count);
+        borderStarts.push_back(accumulatedCount - count);
     }
 
     return totalCount;
@@ -559,13 +471,13 @@ unsigned GeoMipMapping::loadBorderAreaForLod(GeoMipMappingBlock& block, unsigned
  * @brief GeoMipMapping::load2x2Block
  * @return
  */
-unsigned GeoMipMapping::loadLod0Block(GeoMipMappingBlock& block)
+unsigned GeoMipMapping::loadLod0Block()
 {
-    block.pushRelativeIndex(_width, 0, 0);
-    block.pushRelativeIndex(_width, 0, _blockSize - 1);
-    block.pushRelativeIndex(_width, _blockSize - 1, 0);
-    block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-    block.indices.push_back(RESTART_INDEX);
+    pushIndex(0, 0);
+    pushIndex(0, _blockSize - 1);
+    pushIndex(_blockSize - 1, 0);
+    pushIndex(_blockSize - 1, _blockSize - 1);
+    indices.push_back(RESTART_INDEX);
 
     return 5;
 }
@@ -574,25 +486,24 @@ unsigned GeoMipMapping::loadLod0Block(GeoMipMappingBlock& block)
  * @brief Loads a single LOD 1 (i.e. 3x3) block.
  * @return Number of indices generated
  */
-unsigned GeoMipMapping::loadLod1Block(GeoMipMappingBlock& block, unsigned configuration)
+unsigned GeoMipMapping::loadLod1Block(unsigned configuration)
 {
-    // TODO
     unsigned count = 0;
     unsigned step = std::pow(2, _maxLod - 1);
 
     /* ============== Block is surrounded by lower LOD blocks ============== */
     if (configuration == 0b1111) {
-        block.pushRelativeIndex(_width, 0, 0);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, 0);
+        pushIndex(step, step);
+        pushIndex(_blockSize - 1, 0);
+        pushIndex(_blockSize - 1, _blockSize - 1);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, 0, 0);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, 0);
+        pushIndex(0, _blockSize - 1);
+        pushIndex(step, step);
+        pushIndex(_blockSize - 1, _blockSize - 1);
+        indices.push_back(RESTART_INDEX);
         count += 10;
     }
 
@@ -600,78 +511,82 @@ unsigned GeoMipMapping::loadLod1Block(GeoMipMappingBlock& block, unsigned config
     else if (configuration == 0b1110 || configuration == 0b1101 || configuration == 0b1011 || configuration == 0b00111) {
         /* Left or bottom block has the same LOD */
         if (configuration == 0b1110 || configuration == 0b0111) {
-            block.pushRelativeIndex(_width, 0, 0);
-            block.pushRelativeIndex(_width, step, step);
-            block.pushRelativeIndex(_width, _blockSize - 1, 0);
-            block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-            block.indices.push_back(RESTART_INDEX);
+
+            pushIndex(0, 0);
+            pushIndex(step, step);
+            pushIndex(_blockSize - 1, 0);
+            pushIndex(_blockSize - 1, _blockSize - 1);
+            indices.push_back(RESTART_INDEX);
             count += 5;
 
             /* Bottom block has the same LOD*/
             if (configuration == 0b1110) {
-                block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-                block.pushRelativeIndex(_width, step, step);
-                block.pushRelativeIndex(_width, step, _blockSize - 1);
-                block.pushRelativeIndex(_width, 0, _blockSize - 1);
-                block.indices.push_back(RESTART_INDEX);
 
-                block.pushRelativeIndex(_width, 0, _blockSize - 1);
-                block.pushRelativeIndex(_width, step, step);
-                block.pushRelativeIndex(_width, 0, 0);
-                block.indices.push_back(RESTART_INDEX);
+                pushIndex(_blockSize - 1, _blockSize - 1);
+                pushIndex(step, step);
+                pushIndex(step, _blockSize - 1);
+                pushIndex(0, _blockSize - 1);
+                indices.push_back(RESTART_INDEX);
+
+                pushIndex(0, _blockSize - 1);
+                pushIndex(step, step);
+                pushIndex(0, 0);
+                indices.push_back(RESTART_INDEX);
 
                 count += 9;
             } else { /* Left block has the same LOD */
-                block.pushRelativeIndex(_width, 0, _blockSize - 1);
-                block.pushRelativeIndex(_width, step, step);
-                block.pushRelativeIndex(_width, 0, step);
-                block.pushRelativeIndex(_width, 0, 0);
-                block.indices.push_back(RESTART_INDEX);
+                pushIndex(0, _blockSize - 1);
+                pushIndex(step, step);
+                pushIndex(0, step);
+                pushIndex(0, 0);
+                indices.push_back(RESTART_INDEX);
 
-                block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-                block.pushRelativeIndex(_width, step, step);
-                block.pushRelativeIndex(_width, 0, _blockSize - 1);
-                block.indices.push_back(RESTART_INDEX);
+                pushIndex(_blockSize - 1, _blockSize - 1);
+                pushIndex(step, step);
+                pushIndex(0, _blockSize - 1);
+                indices.push_back(RESTART_INDEX);
 
                 count += 9;
             }
 
         } else { /* Top or right block has the same LOD */
-            block.pushRelativeIndex(_width, 0, 0);
-            block.pushRelativeIndex(_width, 0, _blockSize - 1);
-            block.pushRelativeIndex(_width, step, step);
-            block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-            block.indices.push_back(RESTART_INDEX);
+
+            pushIndex(0, 0);
+            pushIndex(0, _blockSize - 1);
+            pushIndex(step, step);
+            pushIndex(_blockSize - 1, _blockSize - 1);
+            indices.push_back(RESTART_INDEX);
 
             count += 5;
 
             /* Top block has the same LOD*/
             if (configuration == 0b1101) {
-                block.pushRelativeIndex(_width, 0, 0);
-                block.pushRelativeIndex(_width, step, step);
-                block.pushRelativeIndex(_width, step, 0);
-                block.pushRelativeIndex(_width, _blockSize - 1, 0);
-                block.indices.push_back(RESTART_INDEX);
 
-                block.pushRelativeIndex(_width, step, step);
-                block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-                block.pushRelativeIndex(_width, _blockSize - 1, 0);
-                block.indices.push_back(RESTART_INDEX);
+                pushIndex(0, 0);
+                pushIndex(step, step);
+                pushIndex(step, 0);
+                pushIndex(_blockSize - 1, 0);
+                indices.push_back(RESTART_INDEX);
+
+                pushIndex(step, step);
+                pushIndex(_blockSize - 1, _blockSize - 1);
+                pushIndex(_blockSize - 1, 0);
+                indices.push_back(RESTART_INDEX);
 
                 count += 9;
 
             } else { /* Right block has the same LOD */
 
-                block.pushRelativeIndex(_width, _blockSize - 1, 0);
-                block.pushRelativeIndex(_width, step, step);
-                block.pushRelativeIndex(_width, _blockSize - 1, step);
-                block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-                block.indices.push_back(RESTART_INDEX);
+                pushIndex(_blockSize - 1, 0);
+                pushIndex(step, step);
+                pushIndex(_blockSize - 1, step);
+                pushIndex(_blockSize - 1, _blockSize - 1);
+                indices.push_back(RESTART_INDEX);
 
-                block.pushRelativeIndex(_width, 0, 0);
-                block.pushRelativeIndex(_width, step, step);
-                block.pushRelativeIndex(_width, _blockSize - 1, 0);
-                block.indices.push_back(RESTART_INDEX);
+                pushIndex(0, 0);
+                pushIndex(step, step);
+                pushIndex(_blockSize - 1, 0);
+                indices.push_back(RESTART_INDEX);
 
                 count += 9;
             }
@@ -681,80 +596,80 @@ unsigned GeoMipMapping::loadLod1Block(GeoMipMappingBlock& block, unsigned config
     /* ======== Block is surrounded by exaclty two lower LOD blocks ======== */
     else if (configuration == 0b0011 || configuration == 0b1100) {
         if (configuration == 0b0011) {
-            block.pushRelativeIndex(_width, _blockSize - 1, step);
-            block.pushRelativeIndex(_width, _blockSize - 1, 0);
-            block.pushRelativeIndex(_width, step, step);
-            block.pushRelativeIndex(_width, 0, 0);
-            block.pushRelativeIndex(_width, 0, _blockSize - 1);
-            block.indices.push_back(RESTART_INDEX);
 
-            block.pushRelativeIndex(_width, 0, step);
-            block.pushRelativeIndex(_width, 0, _blockSize - 1);
-            block.pushRelativeIndex(_width, step, step);
-            block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-            block.pushRelativeIndex(_width, _blockSize - 1, step);
-            block.indices.push_back(RESTART_INDEX);
+            pushIndex(_blockSize - 1, step);
+            pushIndex(_blockSize - 1, 0);
+            pushIndex(step, step);
+            pushIndex(0, 0);
+            pushIndex(0, _blockSize - 1);
+            indices.push_back(RESTART_INDEX);
+
+            pushIndex(0, step);
+            pushIndex(0, _blockSize - 1);
+            pushIndex(step, step);
+            pushIndex(_blockSize - 1, _blockSize - 1);
+            pushIndex(_blockSize - 1, step);
+            indices.push_back(RESTART_INDEX);
 
             count += 12;
         } else {
-            block.pushRelativeIndex(_width, step, 0);
-            block.pushRelativeIndex(_width, 0, 0);
-            block.pushRelativeIndex(_width, step, step);
-            block.pushRelativeIndex(_width, 0, _blockSize - 1);
-            block.pushRelativeIndex(_width, step, _blockSize - 1);
-            block.indices.push_back(RESTART_INDEX);
 
-            block.pushRelativeIndex(_width, step, _blockSize - 1);
-            block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-            block.pushRelativeIndex(_width, step, step);
-            block.pushRelativeIndex(_width, _blockSize - 1, 0);
-            block.pushRelativeIndex(_width, step, 0);
-            block.indices.push_back(RESTART_INDEX);
+            pushIndex(step, 0);
+            pushIndex(0, 0);
+            pushIndex(step, step);
+            pushIndex(0, _blockSize - 1);
+            pushIndex(step, _blockSize - 1);
+            indices.push_back(RESTART_INDEX);
+
+            pushIndex(step, _blockSize - 1);
+            pushIndex(_blockSize - 1, _blockSize - 1);
+            pushIndex(step, step);
+            pushIndex(_blockSize - 1, 0);
+            pushIndex(step, 0);
+            indices.push_back(RESTART_INDEX);
 
             count += 12;
         }
     }
 
-    /*
-     * ==== Determine which corner is a regular quad and the method of the ====
-     *      opposing corner
-     */
+    /* ==== Determine which corner is a regular quad and the method of the ====
+     *      opposing corner */
     else if (!(configuration & (LEFT_BORDER_BITMASK | TOP_BORDER_BITMASK))) {
-        count += loadBottomRightCorner(block, step, configuration);
-        block.pushRelativeIndex(_width, 0, 0);
-        block.pushRelativeIndex(_width, 0, step);
-        block.pushRelativeIndex(_width, step, 0);
-        block.pushRelativeIndex(_width, step, step);
+        count += loadBottomRightCorner(step, configuration);
 
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, 0);
+        pushIndex(0, step);
+        pushIndex(step, 0);
+        pushIndex(step, step);
+        indices.push_back(RESTART_INDEX);
         count += 5;
     } else if (!(configuration & (TOP_BORDER_BITMASK | RIGHT_BORDER_BITMASK))) {
-        count += loadBottomLeftCorner(block, step, configuration);
-        block.pushRelativeIndex(_width, step, 0);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1, step);
+        count += loadBottomLeftCorner(step, configuration);
 
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(step, 0);
+        pushIndex(step, step);
+        pushIndex(_blockSize - 1, 0);
+        pushIndex(_blockSize - 1, step);
+        indices.push_back(RESTART_INDEX);
         count += 5;
 
     } else if (!(configuration & (RIGHT_BORDER_BITMASK | BOTTOM_BORDER_BITMASK))) {
-        count += loadTopLeftCorner(block, step, configuration);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
+        count += loadTopLeftCorner(step, configuration);
 
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(step, step);
+        pushIndex(step, _blockSize - 1);
+        pushIndex(_blockSize - 1, step);
+        pushIndex(_blockSize - 1, _blockSize - 1);
+        indices.push_back(RESTART_INDEX);
         count += 5;
     } else if (!(configuration & (BOTTOM_BORDER_BITMASK | LEFT_BORDER_BITMASK))) {
-        count += loadTopRightCorner(block, step, configuration);
-        block.pushRelativeIndex(_width, 0, step);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1);
+        count += loadTopRightCorner(step, configuration);
 
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, step);
+        pushIndex(0, _blockSize - 1);
+        pushIndex(step, step);
+        pushIndex(step, _blockSize - 1);
+        indices.push_back(RESTART_INDEX);
         count += 5;
     }
 
@@ -769,7 +684,7 @@ unsigned GeoMipMapping::loadLod1Block(GeoMipMappingBlock& block, unsigned config
  * @param configuration
  * @return
  */
-unsigned GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& block, unsigned startIndex, unsigned lod, unsigned configuration)
+unsigned GeoMipMapping::loadBorderAreaForConfiguration(unsigned lod, unsigned configuration)
 {
 
     /* The idea is to traverse the border subblocks clockwise starting from
@@ -782,16 +697,16 @@ unsigned GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& block
     unsigned step = std::pow(2, _maxLod - lod);
     unsigned count = 0;
 
-    count += loadTopLeftCorner(block, step, configuration);
-    count += loadTopBorder(block, step, configuration);
-    count += loadTopRightCorner(block, step, configuration);
-    count += loadRightBorder(block, step, configuration);
-    count += loadBottomRightCorner(block, step, configuration);
-    count += loadBottomBorder(block, step, configuration);
-    count += loadBottomLeftCorner(block, step, configuration);
-    count += loadLeftBorder(block, step, configuration);
+    count += loadTopLeftCorner(step, configuration);
+    count += loadTopBorder(step, configuration);
+    count += loadTopRightCorner(step, configuration);
+    count += loadRightBorder(step, configuration);
+    count += loadBottomRightCorner(step, configuration);
+    count += loadBottomBorder(step, configuration);
+    count += loadBottomLeftCorner(step, configuration);
+    count += loadLeftBorder(step, configuration);
 
-    block.borderSizes.push_back(count);
+    borderSizes.push_back(count);
 
     return count;
 }
@@ -803,10 +718,9 @@ unsigned GeoMipMapping::loadBorderAreaForConfiguration(GeoMipMappingBlock& block
  * @param configuration
  * @return
  */
-unsigned GeoMipMapping::loadTopLeftCorner(GeoMipMappingBlock& block, unsigned step, unsigned configuration)
+unsigned GeoMipMapping::loadTopLeftCorner(unsigned step, unsigned configuration)
 {
     unsigned count = 0;
-
     if ((configuration & LEFT_BORDER_BITMASK) && (configuration & TOP_BORDER_BITMASK)) { /* bitmask is 1_1_ */
         /*
          * *- - -*- - -*
@@ -821,17 +735,17 @@ unsigned GeoMipMapping::loadTopLeftCorner(GeoMipMappingBlock& block, unsigned st
          *
          */
 
-        block.pushRelativeIndex(_width, 2 * step, step);
-        block.pushRelativeIndex(_width, 2 * step, 0);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, 0, 0);
-        block.pushRelativeIndex(_width, 0, 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(2 * step, step);
+        pushIndex(2 * step, 0);
+        pushIndex(step, step);
+        pushIndex(0, 0);
+        pushIndex(0, 2 * step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, step, 2 * step);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, 0, 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(step, 2 * step);
+        pushIndex(step, step);
+        pushIndex(0, 2 * step);
+        indices.push_back(RESTART_INDEX);
 
         count += 10;
 
@@ -850,18 +764,18 @@ unsigned GeoMipMapping::loadTopLeftCorner(GeoMipMappingBlock& block, unsigned st
          *
          */
 
-        block.pushRelativeIndex(_width, step, 0);
-        block.pushRelativeIndex(_width, 0, 0);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, 0, 2 * step);
-        block.pushRelativeIndex(_width, step, 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(step, 0);
+        pushIndex(0, 0);
+        pushIndex(step, step);
+        pushIndex(0, 2 * step);
+        pushIndex(step, 2 * step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, step, 0);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, 2 * step, 0);
-        block.pushRelativeIndex(_width, 2 * step, step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(step, 0);
+        pushIndex(step, step);
+        pushIndex(2 * step, 0);
+        pushIndex(2 * step, step);
+        indices.push_back(RESTART_INDEX);
 
         count += 11;
 
@@ -879,18 +793,18 @@ unsigned GeoMipMapping::loadTopLeftCorner(GeoMipMappingBlock& block, unsigned st
          *
          */
 
-        block.pushRelativeIndex(_width, 0, step);
-        block.pushRelativeIndex(_width, 0, 2 * step);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, step, 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, step);
+        pushIndex(0, 2 * step);
+        pushIndex(step, step);
+        pushIndex(step, 2 * step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, 2 * step, step);
-        block.pushRelativeIndex(_width, 2 * step, 0);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, 0, 0);
-        block.pushRelativeIndex(_width, 0, step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(2 * step, step);
+        pushIndex(2 * step, 0);
+        pushIndex(step, step);
+        pushIndex(0, 0);
+        pushIndex(0, step);
+        indices.push_back(RESTART_INDEX);
 
         count += 11;
 
@@ -908,19 +822,19 @@ unsigned GeoMipMapping::loadTopLeftCorner(GeoMipMappingBlock& block, unsigned st
          *
          */
 
-        block.pushRelativeIndex(_width, 0, step);
-        block.pushRelativeIndex(_width, 0, 2 * step);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, step, 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, step);
+        pushIndex(0, 2 * step);
+        pushIndex(step, step);
+        pushIndex(step, 2 * step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, 0, 0);
-        block.pushRelativeIndex(_width, 0, step);
-        block.pushRelativeIndex(_width, step, 0);
-        block.pushRelativeIndex(_width, step, step);
-        block.pushRelativeIndex(_width, 2 * step, 0);
-        block.pushRelativeIndex(_width, 2 * step, step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, 0);
+        pushIndex(0, step);
+        pushIndex(step, 0);
+        pushIndex(step, step);
+        pushIndex(2 * step, 0);
+        pushIndex(2 * step, step);
+        indices.push_back(RESTART_INDEX);
 
         count += 12;
     }
@@ -935,10 +849,9 @@ unsigned GeoMipMapping::loadTopLeftCorner(GeoMipMappingBlock& block, unsigned st
  * @param configuration
  * @return
  */
-unsigned GeoMipMapping::loadTopRightCorner(GeoMipMappingBlock& block, unsigned step, unsigned configuration)
+unsigned GeoMipMapping::loadTopRightCorner(unsigned step, unsigned configuration)
 {
     unsigned count = 0;
-
     if ((configuration & RIGHT_BORDER_BITMASK) && (configuration & TOP_BORDER_BITMASK)) { /* bitmask is _11_ */
         /*
          * *- - -*- - -*
@@ -953,17 +866,17 @@ unsigned GeoMipMapping::loadTopRightCorner(GeoMipMappingBlock& block, unsigned s
          *
          */
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, 0);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - step, 2 * step);
+        pushIndex(_blockSize - 1, 2 * step);
+        pushIndex(_blockSize - 1 - step, step);
+        pushIndex(_blockSize - 1, 0);
+        pushIndex(_blockSize - 1 - 2 * step, 0);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - step, step);
+        pushIndex(_blockSize - 1 - 2 * step, 0);
+        pushIndex(_blockSize - 1 - 2 * step, step);
+        indices.push_back(RESTART_INDEX);
 
         count += 10;
 
@@ -981,18 +894,18 @@ unsigned GeoMipMapping::loadTopRightCorner(GeoMipMappingBlock& block, unsigned s
          *       *- - -*
          */
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, 0);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - step, 2 * step);
+        pushIndex(_blockSize - 1, 2 * step);
+        pushIndex(_blockSize - 1 - step, step);
+        pushIndex(_blockSize - 1, 0);
+        pushIndex(_blockSize - 1 - step, 0);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - 2 * step, 0);
+        pushIndex(_blockSize - 1 - 2 * step, step);
+        pushIndex(_blockSize - 1 - step, 0);
+        pushIndex(_blockSize - 1 - step, step);
+        indices.push_back(RESTART_INDEX);
 
         count += 11;
 
@@ -1010,18 +923,18 @@ unsigned GeoMipMapping::loadTopRightCorner(GeoMipMappingBlock& block, unsigned s
          *
          */
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - step, step);
+        pushIndex(_blockSize - 1 - step, 2 * step);
+        pushIndex(_blockSize - 1, step);
+        pushIndex(_blockSize - 1, 2 * step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, _blockSize - 1, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1, step);
+        pushIndex(_blockSize - 1, 0);
+        pushIndex(_blockSize - 1 - step, step);
+        pushIndex(_blockSize - 1 - 2 * step, 0);
+        pushIndex(_blockSize - 1 - 2 * step, step);
+        indices.push_back(RESTART_INDEX);
 
         count += 11;
 
@@ -1039,19 +952,19 @@ unsigned GeoMipMapping::loadTopRightCorner(GeoMipMappingBlock& block, unsigned s
          *
          */
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 0);
-        block.pushRelativeIndex(_width, _blockSize - 1, step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - 2 * step, 0);
+        pushIndex(_blockSize - 1 - 2 * step, step);
+        pushIndex(_blockSize - 1 - step, 0);
+        pushIndex(_blockSize - 1 - step, step);
+        pushIndex(_blockSize - 1, 0);
+        pushIndex(_blockSize - 1, step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1, step);
-        block.pushRelativeIndex(_width, _blockSize - 1, 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - step, step);
+        pushIndex(_blockSize - 1 - step, 2 * step);
+        pushIndex(_blockSize - 1, step);
+        pushIndex(_blockSize - 1, 2 * step);
+        indices.push_back(RESTART_INDEX);
 
         count += 12;
     }
@@ -1066,7 +979,7 @@ unsigned GeoMipMapping::loadTopRightCorner(GeoMipMappingBlock& block, unsigned s
  * @param configuration
  * @return
  */
-unsigned GeoMipMapping::loadBottomRightCorner(GeoMipMappingBlock& block, unsigned step, unsigned configuration)
+unsigned GeoMipMapping::loadBottomRightCorner(unsigned step, unsigned configuration)
 {
     unsigned count = 0;
 
@@ -1084,17 +997,17 @@ unsigned GeoMipMapping::loadBottomRightCorner(GeoMipMappingBlock& block, unsigne
          *
          */
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1 - 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - 2 * step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1 - 2 * step, _blockSize - 1);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1, _blockSize - 1);
+        pushIndex(_blockSize - 1, _blockSize - 1 - 2 * step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1 - 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - 2 * step);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1, _blockSize - 1 - 2 * step);
+        indices.push_back(RESTART_INDEX);
 
         count += 10;
 
@@ -1113,18 +1026,18 @@ unsigned GeoMipMapping::loadBottomRightCorner(GeoMipMappingBlock& block, unsigne
          *
          */
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - 2 * step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1);
+        pushIndex(_blockSize - 1, _blockSize - 1);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1, _blockSize - 1 - 2 * step);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - 2 * step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - 2 * step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1 - 2 * step, _blockSize - 1);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1);
+        indices.push_back(RESTART_INDEX);
 
         count += 11;
 
@@ -1142,18 +1055,18 @@ unsigned GeoMipMapping::loadBottomRightCorner(GeoMipMappingBlock& block, unsigne
          *
          */
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - 2 * step);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1, _blockSize - 1 - 2 * step);
+        pushIndex(_blockSize - 1, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - 2 * step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1 - 2 * step, _blockSize - 1);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1, _blockSize - 1);
+        pushIndex(_blockSize - 1, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
         count += 11;
 
@@ -1171,20 +1084,20 @@ unsigned GeoMipMapping::loadBottomRightCorner(GeoMipMappingBlock& block, unsigne
          *
          */
 
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - 2 * step);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1, _blockSize - 1 - 2 * step);
+        pushIndex(_blockSize - 1, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
         // TODO
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1 - step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, _blockSize - 1);
-        block.pushRelativeIndex(_width, _blockSize - 1 - 2 * step, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(_blockSize - 1, _blockSize - 1);
+        pushIndex(_blockSize - 1, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1);
+        pushIndex(_blockSize - 1 - step, _blockSize - 1 - step);
+        pushIndex(_blockSize - 1 - 2 * step, _blockSize - 1);
+        pushIndex(_blockSize - 1 - 2 * step, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
         count += 12;
     }
@@ -1192,7 +1105,7 @@ unsigned GeoMipMapping::loadBottomRightCorner(GeoMipMappingBlock& block, unsigne
     return count;
 }
 
-unsigned GeoMipMapping::loadBottomLeftCorner(GeoMipMappingBlock& block, unsigned step, unsigned configuration)
+unsigned GeoMipMapping::loadBottomLeftCorner(unsigned step, unsigned configuration)
 {
     unsigned count = 0;
 
@@ -1210,17 +1123,17 @@ unsigned GeoMipMapping::loadBottomLeftCorner(GeoMipMappingBlock& block, unsigned
          *
          */
 
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1);
-        block.pushRelativeIndex(_width, 2 * step, _blockSize - 1);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(step, _blockSize - 1 - 2 * step);
+        pushIndex(0, _blockSize - 1 - 2 * step);
+        pushIndex(step, _blockSize - 1 - step);
+        pushIndex(0, _blockSize - 1);
+        pushIndex(2 * step, _blockSize - 1);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, 2 * step, _blockSize - 1);
-        block.pushRelativeIndex(_width, 2 * step, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(step, _blockSize - 1 - step);
+        pushIndex(2 * step, _blockSize - 1);
+        pushIndex(2 * step, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
         count += 10;
 
@@ -1239,18 +1152,18 @@ unsigned GeoMipMapping::loadBottomLeftCorner(GeoMipMappingBlock& block, unsigned
          *
          */
 
-        block.pushRelativeIndex(_width, 2 * step, _blockSize - 1);
-        block.pushRelativeIndex(_width, 2 * step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1);
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(2 * step, _blockSize - 1);
+        pushIndex(2 * step, _blockSize - 1 - step);
+        pushIndex(step, _blockSize - 1);
+        pushIndex(step, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1);
-        block.pushRelativeIndex(_width, step, _blockSize - 1);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(step, _blockSize - 1 - 2 * step);
+        pushIndex(0, _blockSize - 1 - 2 * step);
+        pushIndex(step, _blockSize - 1 - step);
+        pushIndex(0, _blockSize - 1);
+        pushIndex(step, _blockSize - 1);
+        indices.push_back(RESTART_INDEX);
 
         count += 11;
 
@@ -1268,18 +1181,18 @@ unsigned GeoMipMapping::loadBottomLeftCorner(GeoMipMappingBlock& block, unsigned
          *
          */
 
-        block.pushRelativeIndex(_width, 0, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1);
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, 2 * step, _blockSize - 1);
-        block.pushRelativeIndex(_width, 2 * step, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, _blockSize - 1 - step);
+        pushIndex(0, _blockSize - 1);
+        pushIndex(step, _blockSize - 1 - step);
+        pushIndex(2 * step, _blockSize - 1);
+        pushIndex(2 * step, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, 0, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, _blockSize - 1 - 2 * step);
+        pushIndex(0, _blockSize - 1 - step);
+        pushIndex(step, _blockSize - 1 - 2 * step);
+        pushIndex(step, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
         count += 11;
 
@@ -1297,19 +1210,19 @@ unsigned GeoMipMapping::loadBottomLeftCorner(GeoMipMappingBlock& block, unsigned
          *
          */
 
-        block.pushRelativeIndex(_width, 2 * step, _blockSize - 1);
-        block.pushRelativeIndex(_width, 2 * step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1);
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(2 * step, _blockSize - 1);
+        pushIndex(2 * step, _blockSize - 1 - step);
+        pushIndex(step, _blockSize - 1);
+        pushIndex(step, _blockSize - 1 - step);
+        pushIndex(0, _blockSize - 1);
+        pushIndex(0, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
-        block.pushRelativeIndex(_width, 0, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, 0, _blockSize - 1 - step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - 2 * step);
-        block.pushRelativeIndex(_width, step, _blockSize - 1 - step);
-        block.indices.push_back(RESTART_INDEX);
+        pushIndex(0, _blockSize - 1 - 2 * step);
+        pushIndex(0, _blockSize - 1 - step);
+        pushIndex(step, _blockSize - 1 - 2 * step);
+        pushIndex(step, _blockSize - 1 - step);
+        indices.push_back(RESTART_INDEX);
 
         count += 12;
     }
@@ -1324,19 +1237,19 @@ unsigned GeoMipMapping::loadBottomLeftCorner(GeoMipMappingBlock& block, unsigned
  * @param configuration
  * @return
  */
-unsigned GeoMipMapping::loadTopBorder(GeoMipMappingBlock& block, unsigned step, unsigned configuration)
+unsigned GeoMipMapping::loadTopBorder(unsigned step, unsigned configuration)
 {
     unsigned count = 0;
     if (configuration & TOP_BORDER_BITMASK) {
 
         /* Load border with crack avoidance */
         for (int j = step * 2; j < (int)(_blockSize) - (int)step * 3; j += step * 2) {
-            block.pushRelativeIndex(_width, j + 2 * step, step);
-            block.pushRelativeIndex(_width, j + 2 * step, 0);
-            block.pushRelativeIndex(_width, j + step, step);
-            block.pushRelativeIndex(_width, j, 0);
-            block.pushRelativeIndex(_width, j, step);
-            block.indices.push_back(RESTART_INDEX);
+            pushIndex(j + 2 * step, step);
+            pushIndex(j + 2 * step, 0);
+            pushIndex(j + step, step);
+            pushIndex(j, 0);
+            pushIndex(j, step);
+            indices.push_back(RESTART_INDEX);
 
             count += 6;
         }
@@ -1344,13 +1257,13 @@ unsigned GeoMipMapping::loadTopBorder(GeoMipMappingBlock& block, unsigned step, 
     } else {
         /* Load border normally like any other block */
         for (int j = step * 2; j < (int)_blockSize - (int)step * 2; j += step) {
-            block.pushRelativeIndex(_width, j, 0);
-            block.pushRelativeIndex(_width, j, step);
+            pushIndex(j, 0);
+            pushIndex(j, step);
 
             count += 2;
         }
     }
-    block.indices.push_back(RESTART_INDEX);
+    indices.push_back(RESTART_INDEX);
     count++;
 
     return count;
@@ -1363,19 +1276,20 @@ unsigned GeoMipMapping::loadTopBorder(GeoMipMappingBlock& block, unsigned step, 
  * @param configuration
  * @return
  */
-unsigned GeoMipMapping::loadRightBorder(GeoMipMappingBlock& block, unsigned step, unsigned configuration)
+unsigned GeoMipMapping::loadRightBorder(unsigned step, unsigned configuration)
 {
     unsigned count = 0;
 
     if (configuration & RIGHT_BORDER_BITMASK) {
         // TODO
         for (int i = step * 2; i < (int)(_blockSize) - (int)step * 3; i += step * 2) {
-            block.pushRelativeIndex(_width, _blockSize - 1 - step, i + 2 * step);
-            block.pushRelativeIndex(_width, _blockSize - 1, i + 2 * step);
-            block.pushRelativeIndex(_width, _blockSize - 1 - step, i + step);
-            block.pushRelativeIndex(_width, _blockSize - 1, i);
-            block.pushRelativeIndex(_width, _blockSize - 1 - step, i);
-            block.indices.push_back(RESTART_INDEX);
+
+            pushIndex(_blockSize - 1 - step, i + 2 * step);
+            pushIndex(_blockSize - 1, i + 2 * step);
+            pushIndex(_blockSize - 1 - step, i + step);
+            pushIndex(_blockSize - 1, i);
+            pushIndex(_blockSize - 1 - step, i);
+            indices.push_back(RESTART_INDEX);
 
             count += 6;
         }
@@ -1383,14 +1297,14 @@ unsigned GeoMipMapping::loadRightBorder(GeoMipMappingBlock& block, unsigned step
     } else {
         /* Load border normally like any other block */
         for (int i = step * 2; i < (int)_blockSize - (int)step * 2; i += step) {
-            block.pushRelativeIndex(_width, _blockSize - 1, i);
-            block.pushRelativeIndex(_width, _blockSize - 1 - step, i);
+            pushIndex(_blockSize - 1, i);
+            pushIndex(_blockSize - 1 - step, i);
 
             count += 2;
         }
     }
 
-    block.indices.push_back(RESTART_INDEX);
+    indices.push_back(RESTART_INDEX);
     count++;
 
     return count;
@@ -1403,31 +1317,32 @@ unsigned GeoMipMapping::loadRightBorder(GeoMipMappingBlock& block, unsigned step
  * @param configuration
  * @return
  */
-unsigned GeoMipMapping::loadBottomBorder(GeoMipMappingBlock& block, unsigned step, unsigned configuration)
+unsigned GeoMipMapping::loadBottomBorder(unsigned step, unsigned configuration)
 {
     unsigned count = 0;
 
     if (configuration & BOTTOM_BORDER_BITMASK) {
         for (int j = step * 2; j < (int)_blockSize - (int)step * 3; j += step * 2) {
-            block.pushRelativeIndex(_width, j, _blockSize - step - 1);
-            block.pushRelativeIndex(_width, j, _blockSize - 1);
-            block.pushRelativeIndex(_width, j + step, _blockSize - step - 1);
-            block.pushRelativeIndex(_width, j + 2 * step, _blockSize - 1);
-            block.pushRelativeIndex(_width, j + 2 * step, _blockSize - step - 1);
-            block.indices.push_back(RESTART_INDEX);
+
+            pushIndex(j, _blockSize - step - 1);
+            pushIndex(j, _blockSize - 1);
+            pushIndex(j + step, _blockSize - step - 1);
+            pushIndex(j + 2 * step, _blockSize - 1);
+            pushIndex(j + 2 * step, _blockSize - step - 1);
+            indices.push_back(RESTART_INDEX);
 
             count += 6;
         }
     } else {
         /* Load border normally like any other block */
         for (int j = step * 2; j < (int)_blockSize - (int)step * 2; j += step) {
-            block.pushRelativeIndex(_width, j, _blockSize - 1 - step);
-            block.pushRelativeIndex(_width, j, _blockSize - 1);
+            pushIndex(j, _blockSize - 1 - step);
+            pushIndex(j, _blockSize - 1);
 
             count += 2;
         }
     }
-    block.indices.push_back(RESTART_INDEX);
+    indices.push_back(RESTART_INDEX);
     count++;
 
     return count;
@@ -1440,67 +1355,35 @@ unsigned GeoMipMapping::loadBottomBorder(GeoMipMappingBlock& block, unsigned ste
  * @param configuration
  * @return
  */
-unsigned GeoMipMapping::loadLeftBorder(GeoMipMappingBlock& block, unsigned step, unsigned configuration)
+unsigned GeoMipMapping::loadLeftBorder(unsigned step, unsigned configuration)
 {
     unsigned count = 0;
 
     if (configuration & LEFT_BORDER_BITMASK) {
         for (int i = step * 2; i < (int)(_blockSize) - (int)(step * 3); i += step * 2) {
-            block.pushRelativeIndex(_width, step, i);
-            block.pushRelativeIndex(_width, 0, i);
-            block.pushRelativeIndex(_width, step, i + step);
-            block.pushRelativeIndex(_width, 0, i + 2 * step);
-            block.pushRelativeIndex(_width, step, i + 2 * step);
-            block.indices.push_back(RESTART_INDEX);
+
+            pushIndex(step, i);
+            pushIndex(0, i);
+            pushIndex(step, i + step);
+            pushIndex(0, i + 2 * step);
+            pushIndex(step, i + 2 * step);
+            indices.push_back(RESTART_INDEX);
 
             count += 6;
         }
     } else {
         /* Load border normally like any other block */
         for (int i = step * 2; i < (int)(_blockSize) - (int)(step * 2); i += step) {
-            block.pushRelativeIndex(_width, step, i);
-            block.pushRelativeIndex(_width, 0, i);
-
+            pushIndex(step, i);
+            pushIndex(0, i);
             count += 2;
         }
     }
-    block.indices.push_back(RESTART_INDEX);
+    indices.push_back(RESTART_INDEX);
     count++;
 
     return count;
 }
-
-/*
- * TODO: implement below method for borders instead of having 4 methods for each side
- */
-// unsigned GeoMipMapping::loadBorder(GeoMipMappingBlock& block, unsigned step, unsigned direction, unsigned configuration)
-//{
-//     unsigned count = 0;
-
-//    if (configuration & LEFT_BORDER_BITMASK) {
-//        for (int i = step * 2; i < (int)(_blockSize) - (int)(step * 3); i += step * 2) {
-//            block.pushRelativeIndex(width, step, i);
-//            block.pushRelativeIndex(width, 0, i);
-//            block.pushRelativeIndex(width, step, i + step);
-//            block.pushRelativeIndex(width, 0, i + 2 * step);
-//            block.pushRelativeIndex(width, step, i + 2 * step);
-
-//            count += 5;
-//        }
-//    } else {
-//        /* Load border normally like any other block */
-//        for (int i = step * 2; i < (int)(_blockSize) - (int)(step * 2); i += step) {
-//            block.pushRelativeIndex(width, step, i);
-//            block.pushRelativeIndex(width, 0, i);
-
-//            count += 2;
-//        }
-//    }
-//    block.indices.push_back(RESTART_INDEX);
-//    count++;
-
-//    return count;
-//}
 
 /**
  * @brief Unloads the vertex array object, vertex buffer object and for each
@@ -1511,13 +1394,7 @@ void GeoMipMapping::unloadBuffers()
     std::cout << "Unloading buffers" << std::endl;
     glDeleteVertexArrays(1, &_vao);
     glDeleteBuffers(1, &_vbo);
-
-    for (unsigned i = 0; i < _nBlocksZ; i++) {
-        for (unsigned j = 0; j < _nBlocksX; j++) {
-            unsigned currentEBO = getBlock(j, i)._ebo;
-            glDeleteBuffers(1, &currentEBO);
-        }
-    }
+    glDeleteBuffers(1, &_ebo);
 
     AtlodUtil::checkGlError("GeoMipMapping deletion failed");
 }

@@ -15,6 +15,7 @@ uniform float doTexture;
 uniform vec3 skyColor;
 uniform vec3 terrainColor;
 uniform float doFog;
+uniform float fogDensity;
 
 vec3 calculateAmbient(vec3 lightColor, float strength);
 vec3 calculateDiffuse(vec3 lightColor);
@@ -37,7 +38,7 @@ void main()
 
         if (doFog > 0.5) {
             vec3 fogColour = skyColor;
-            float fogFactor = calculateFog(0.0005);
+            float fogFactor = calculateFog(fogDensity);
             color = mix(fogColour, color, fogFactor);
         }
 

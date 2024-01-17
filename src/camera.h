@@ -33,8 +33,8 @@ enum class CameraAction {
  * Based on learnopengl.com.
  */
 struct Plane {
-    glm::vec3 normal = { 0.f, 1.f, 0.f }; // unit vector
-    float distance = 0.f; // Distance with origin
+    glm::vec3 normal = { 0.0f, 1.0f, 0.0f };
+    float distance = 0.0f;
 
     Plane() = default;
 
@@ -79,24 +79,41 @@ public:
 
     void processKeyboard(CameraAction direction, float deltaTime);
     void updateFrustum();
+    bool insideFrustum(glm::vec3 firstPoint, glm::vec3 secondPoint);
+    bool checkPlane(Plane& plane);
 
     /* Getters */
     glm::mat4 getViewMatrix();
     glm::vec3 front();
     glm::vec3 position();
+    Frustum viewFrustum();
     float zoom();
+    float yaw();
+    float pitch();
 
     /* Setters */
     void aspectRatio(float aspectRatio);
+    void yaw(float yaw);
+    void pitch(float pitch);
 
-    /* Whether the terrain LOD algorithm should continue with the
-     * current camera state*/
-    bool frozen = false;
+    void intersects();
 
-    Frustum viewFrustum;
+    /* Automatic flying and 360-look-around methods */
+    void lerpFly(float lerpFactor);
+    void lerpLook(float lerpFactor);
+
+    bool isFlying = false;
+    bool isLookingAround360 = false;
+
+    glm::vec3 origin;
+    glm::vec3 destination;
+    glm::vec3 direction;
+    float initialYaw;
+
+    void updateCameraVectors();
 
 private:
-    void updateCameraVectors();
+    Frustum _viewFrustum;
 
     glm::vec3 _position;
     glm::vec3 _front;
@@ -110,6 +127,7 @@ private:
     float _pitch;
     float _movementSpeed;
     float _zoom;
+    float _lookSpeed;
 };
 
 #endif // CAMERA_H

@@ -1,48 +1,61 @@
 \chapter{Introduction}
-In the field of 3D computer graphics, rendering is one of the central tasks.
+In 3D computer graphics, rendering is the central task.
 Many practical applications of 3D computer graphics make use of terrains, 
 such as flight simulators, open-world video games, and Geographic Information Systems (GIS) \cite[p.~185]{lodfor3dgraphics}.
-At the same time, rendering large and constantly visible objects, such as the terrain, is computationally expensive 
-and optimizations are necessary in order to avoid performance deficiencies.
+At the same time, rendering terrains, which are large and constantly visible, is computationally expensive 
+and optimizations are necessary in order to ensure adequate performance.
 
-One area which offers potential for optimizations is the \textit{level of detail (LOD)} of objects.
-The concept of LOD is based on the idea that the farther away an object is, the fewer details are going to be visible to the human eye.
-
-The problem of rendering terrains spawned numerous algorithms and approaches specifically
-for this purpose.
+One area which offers potential for optimizations is the \textit{level of detail (LOD)}.
+The concept of LOD is based on the intuitive idea that the farther away an object is, the fewer details are going to be visible to the human eye.
+Over the last three decades, numerous algorithms and approaches have been published 
+for the problem of efficient terrain rendering.
 
 \section{Goals of this Project}
-The main goal of this project is to gain an overview over the topic of 
-terrain rendering, in theory as well as in practice. 
-This includes introducing the basics of terrain programming,
-analyzing and comparing existing approaches and algorithms, and
-researching what approaches are used in the real world.
-For this purpose, a demo application (named \textit{ATLOD}) that 
-utilizes some of the analyzed algorithms is developed
-in C++ and OpenGL.
+The primary goal of this project is the survey and evaluation
+of terrain rendering algorithms.
+First, the basics of terrain rendering are studied and 
+an overview of the state of the art of terrain rendering is 
+composed. Afterwards, a demo terrain renderer is developed,
+using the ideas from one or more of the evaluated algorithms.
 
-% \begin{itemize}
-%   \item Introduction to terrain LOD: 
-% \end{itemize}
-% Goals: Introduction to LOD and terrain LOD, give overview of algorithms and implementations, 
-%        overview of applications in game engines and other, demo application for trying out LOD algorithms, 
-%        performance comparison 
+This project is restricted to rendering terrains from heightmaps without streaming/paging.
 
-\section{Structure of the Report}
+\section{Intended Readership}
+The reader is assumed to be familiar with the basics of computer graphics, C++ and OpenGL.
+
+\section{Notation and Terminology}
+\subsection{Mathematical Notation}
+This report uses the following mathematical notation:
+\begin{itemize}
+      \item The coordinate system is a right-handed coordinate system with $y$ as the up-direction, unless explicitly stated otherwise.
+      \item $\mathbb{N}$ denotes the set of natural numbers, $\mathbb{R}$ is the set of real numbers, $\mathbb{R}^n$ is the set of real numbers in $n$ dimensions.
+      \item $\mathbf{p} = (p_x, p_y, p_z)$ denotes a point in $\mathbb{R}^3$.
+      \item $\mathbf{v} = (v_x, v_y, v_z)$ denotes a vector in $\mathbb{R}^3$.
+\end{itemize}
+If at any point the report contains mathematical notation which is
+not described here, 
+mathematical notation as commonly found in computer graphics is used.
+
+\subsection{The Term ``LOD Level''}
+The definition of what ``LOD level 0'' and what ``LOD level $l$'' ($l = $ maximum LOD) mean is different from paper to paper.
+Normally, LOD systems use 0 for the highest resolu`ion and $l$ for the lowest resolution.
+In this report, the opposite (and slightly more intuitive) approach is followed: $l$ denotes the highest resolution, and 0 denotes the lowest resolution.
+
+\section{Outline of the Report}
 This report is structured as follows:
 \begin{itemize}
-  \item Chapter 2 gives an overview of work that has already been conducted in the area of terrain LOD
-        and relevant literature for this project.
-  \item Chapter 3 describes the basics of terrain rendering, such as terrain data representations 
-        and potential problems during rendering.
-  \item Chapter 4 introduces the reader to a selection of terrain LOD algorithms. Each algorithm 
-        is described in a high-level manner.
+  \item Chapter 2 introduces the reader to the basics of terrain rendering. The topics covered include 
+        terrain data representation, common optimizations and potential problems during rendering.
+  \item Chapter 3 gives an overview of the state of the art of terrain rendering.
+        Various algorithms and their central ideas are presented in a high-level manner.
+        Afterwards, some examples of real-world systems using terrain LOD algorithms are given.
+  \item Chapter 4 describes the demo terrain renderer (named ATLOD) which was developed.
+        The basic features and the implementation details of the algorithms are presented.
   \item Chapter 5 Lists a few real-world examples where terrain LOD is being used, such as 
         game engines or geographic information systems.
-        The algorithms are presented in a high-level manner and in chronological order of their publication date.
+        The algorithms are presented in a high-level manner.
   \item Chapter 6 describes ATLOD, the demo application for terrain rendering implemented as part of this project.
         An overview of the functionalities is given and the main approaches and design decisions are discussed.
-        The concrete implementations of the algorithms are described in detail.
   \item Chapter 7 TODO
 \end{itemize}
 

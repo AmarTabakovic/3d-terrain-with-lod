@@ -4,11 +4,10 @@
 is a terrain LOD algorithm developed by Duchaineau \textit{et al.} \cite{roam} published in 1997.
 ROAM represents the terrain mesh using bintrees and performs triangle splits and merges
 for generating and removing detail. 
-The splits and merges happen mainly on the CPU, which makes ROAM a mainly CPU-based approach.
 
 \subsection{General Idea}
-The central idea of the algorithm is to use temporal coherence: the mesh from a previous frame $\mathbf{T}_{f-1}$ is used to compute 
-the mesh of the current frame $\mathbf{T}$, rather than building up the mesh from ground up for each frame.
+The central idea of the algorithm is to use temporal coherence: the mesh from a previous frame is used to compute 
+the mesh of the current frame, rather than building up the mesh from ground up for each frame.
 This is done using two priority queues: a split queue $\mathcal{Q}_s$ and a merge queue $\mathcal{Q}_m$.
 The split queue contains splittable triangles $T$
 and the merge queue contains mergable triangle pairs $(T,T_B)$.
@@ -25,7 +24,7 @@ which are explained in the following paragraphs.
 \paragraph{Wedgies} \textit{Wedgies} are nested bounding volumes around triangles that are computed 
 while building the initial mesh at the beginning of the algorithm.
 A wedgie is defined to contain the entire $x$ and $z$ extent\footnote{The original ROAM paper uses $z$ for the up direction. For the sake of consistency with the rest of this report, we will use $y$ as the up direction here.}
-of a triangle and the height $y$ including some additional space above and below the highest and lowest points,
+of a triangle and the height $y$ including some additional padding space above and below the highest and lowest points,
 respectively.
 
 \paragraph{Geometric Screen Distortion}
@@ -34,17 +33,20 @@ The maximum of all distances is calculated and used as the base priority metric 
 
 \subsection{Other Optimizations}
 \paragraph{View-frustum Culling}
-An optimization that is mentioned is view-frustum culling. In each frame, various flags are updated during 
+An optimization that is mentioned is view-frustum culling. 
+View-frustum culling is done on a per-bintree-triangle.
+In each frame, various flags are updated during 
 the recursive traversal of the bintree. These flags indicate whether a wedgie is inside the view-frustum 
 fully, partially, or not at all.
 
 \paragraph{Incremental Triangle Stripping}
 The ROAM paper reports using \textit{incremental triangle stripping} for optimizing the performance of the rendering.
-This is simply refers to using triangle strips for rendering. which is supported by all major graphics APIs.
+This is simply refers to using triangle strips for rendering. which is supported by all current major graphics APIs.
 
 \subsection{Conclusion}
-The runtime of ROAM is independent of the screen resolution and is proportional to the 
-number of triangle changes per frame. 
+ROAM is not particularly suited for today's GPU, since it mainly relies 
+on immediate mode rendering, which is outdated in most graphics APIs of today.
+In addition to this, the splits and merges of the priority queues happen entirely on the CPU.
 
 %\section{Röttger's Quadtree-based Algorithm}
 %TODO
@@ -68,12 +70,6 @@ For example, the GeoMipMaps of a $5 \times 5$ terrain block contain $2^2 + 1 = 5
 As for the number of quads, at LOD level 2 there are $2^{4} = 16$ quads, at LOD level 1 there are $2^2 = 4$ quads and at LOD level 0 there is $2^0 = 1$ quad.
 Figure~\ref{fig:geomipmapping-patch-example} illustrates the above example.
 
-% \begin{figure}[H]
-%   \centering
-%   \includegraphics[width=1\textwidth]{geomipmapping-patch-example}
-%   \caption{Example of a $5 \times 5$ block at the maximum LOD level of 2 (left), LOD level of 1 (middle) and minimum LOD level of 0 (right). The omitted vertices of the lower LOD blocks are shown here as dotted circles.}\label{fig:geomipmapping-patch-example}
-% \end{figure}
-
 \begin{figure}[H]
   \centering
   \subfloat[\centering LOD level 2 (maximum).]{{\includegraphics[width=0.28\textwidth]{geomipmapping-level-2.png} }}
@@ -85,9 +81,7 @@ Figure~\ref{fig:geomipmapping-patch-example} illustrates the above example.
 \end{figure}
 
 \subsection{View-frustum Culling}
-The organisation of the terrain into blocks allows for easy view-frustum culling,
-which dramatically decreases the number of vertices that need to get rendered.
-
+The organisation of the terrain into blocks allows for easy view-frustum culling.
 
 \subsection{LOD Selection}
 The LOD for each block is selected at runtime and is based on a 
@@ -102,47 +96,44 @@ as triangle fans, as shown in figure~\ref{fig:geomipmapping-crack-avoidance}.
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.7\textwidth]{geomipmapping-crack-avoidance}
-  \caption{Example of GeoMipMapping's crack avoidance between a LOD 2 and a LOD 1 GeoMipMap of two $5 \times 5$ blocks as described in the original paper.}\label{fig:geomipmapping-crack-avoidance}
-\end{figure}
-
-% An alternative way to render neighboring blocks with different LOD levels is to render the triangle fans from the center point of each $3 \times 3$ border subblock. 
-% This approach is somewhat simpler for handling special cases, e.g. when both the top and right neighboring blocks have a lower LOD,
-% as shown shown in figure~\ref{fig:geomipmapping-crack-avoidance-alternative}.
-
-%\begin{figure}[H]
-%  \centering
-%  \includegraphics[width=0.5\textwidth]{geomipmapping-crack-avoidance-alternative}
-%  \caption{Alternative method to avoid cracks between a LOD 2 and a LOD 1 GeoMipMap of two $5 \times 5$ blocks.}\label{fig:geomipmapping-crack-avoidance-alternative}
-%\end{figure}
-
-\begin{figure}[H]
-  \centering
-  \subfloat[\centering Using the entire $3\times 3$ border subblocks for the triangle fans.]{{\includegraphics[width=0.45\textwidth]{geomipmapping-crack-avoidance-alternative-1} }}
-  \qquad
-  \subfloat[\centering Using only the top-most $2\times3$ subblocks and the right-most $3\times2$ subblocks for the triangle fans.]{{\includegraphics[width=0.45\textwidth]{geomipmapping-crack-avoidance-alternative-2} }}
-  \caption{Two alternative triangle fan-based methods to avoid cracks between a LOD 2 and two LOD 1 GeoMipMaps of three $5 \times 5$ blocks. The border subblocks are marked in red.}\label{fig:geomipmapping-crack-avoidance-alternative}
+  \caption{Example of GeoMipMapping's crack avoidance between a LOD 2 and a LOD 1 GeoMipMap of two $5 \times 5$ blocks.}\label{fig:geomipmapping-crack-avoidance}
 \end{figure}
 
 Regardless of the rendering approach, a neighborhood structure consisting of the LOD levels of the left, right, top and bottom 
-neighboring blocks needs to be stored per block, so that the algorithm knows how to perform the vertex omission. The LOD levels of each block change continually each frame, which means 
+neighboring blocks needs to be stored per block, so that the algorithm knows how to perform the vertex omission. The LOD levels of each block change each frame, which means 
 that the neighborhood structure of each block also gets updated each frame.
 
 \subsection{Other Optimizations}
 \paragraph{Vertex Morphing}
 GeoMipMapping can be extended with vertex morphing in order to decrease popping.
 
+\section{(GPU-based) Geometry Clipmaps}
+Geometry Clipmaps is a terrain rendering technique published by Hoppe and Losasso in 2004.
+A follow-up GPU-based variant of Geometry Clipmaps was described in GPU Gems TODO by Hoppe and Asirvatham in 2005.
+In this section, the basic features of the GPU-based Geometry Clipmaps algorithm are presented.
 
+The general idea is to have a single flat mesh centered around the viewer.
+The flat mesh consists of nested rings which double in size each level.
+The height values are stored in a texture object and the flat mesh is displaced in the vertex shader.
 
+\subsection{Mesh Organisation}
+The algorithm is based on a single flat mesh centered around the camera.
+The flat mesh is organized as a set of nested rings of $l$ levels, 
+where the innermost level $l-1$ is filled in, and where the ring at level $l_i$ is twice as big as the ring 
+at level $l_{i+1}$. 
 
-\section{Geometry Clipmaps}
-Geometry Clipmaps is a terrain rendering technique published by Hoppe and Losasso in TODO.
-The follow-up GPU-based 
+\subsection{Vertex Morphing}
+
+\subsection{View-frustum Culling}
 
 %\section{CDLOD}
 %TODO
 
 \section{Concurrent Binary Trees}
-TODO
+The approach is similar to ROAM in the sense that it computes a triangulation of the terrain using bintrees.
+The main difference is that the spliting and merging of the bintrees happens in parallel on compute shaders using the 
+CBT data structure, whereas in ROAM, the bintrees are split and merged on the CPU.
 
-\section{GPU Tessellation Shaders}
+\subsection{Conclusion}
+The paper does not mention any methods used to prevent popping of the terrain.
 

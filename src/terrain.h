@@ -38,9 +38,7 @@ public:
     virtual void unloadBuffers() = 0;
     virtual void render(Camera camera) = 0;
 
-    void loadTexture(std::string& fileName);
-    void loadNormalMap(std::string& fileName);
-    void loadDetail(std::string& fileName);
+    void loadTexture(const std::string& fileName);
 
     Heightmap& heightmap();
     Shader& shader();
@@ -49,6 +47,8 @@ public:
     unsigned height();
     float xzScale();
     float yScale();
+
+    void yScale(float yScale);
 
     bool hasTexture();
     bool hasNormal();
@@ -68,7 +68,7 @@ protected:
     unsigned _normalId; /* OpenGL ID for the normal map */
     unsigned _detailId; /* OpenGL ID for the detail map */
 
-    float _xzScale;
+    float _xzScale; /* TODO: Unneeded? */
     float _yScale;
 
     bool _hasTexture = false;

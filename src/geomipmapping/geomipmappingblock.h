@@ -2,12 +2,14 @@
 #define GEOMIPMAPPINGBLOCK_H
 
 #include "../camera.h"
-#include "geomipmap.h"
 // #include "geomipmapping.h"
 
 #include <glm/vec3.hpp>
 #include <vector>
 
+/**
+ * Forward declaration
+ */
 class GeoMipMapping;
 
 /**
@@ -17,49 +19,32 @@ class GeoMipMapping;
  */
 class GeoMipMappingBlock {
 public:
-    GeoMipMappingBlock(unsigned blockId, unsigned startIndex, glm::vec3 center, unsigned blockSize);
-
-    unsigned getRelativeIndex(unsigned width, unsigned x, unsigned y);
-    void pushRelativeIndex(unsigned width, unsigned x, unsigned y); /* TODO: Store width as a field? */
+    GeoMipMappingBlock(unsigned blockId, glm::vec3 trueCenter, glm::vec3 aabbCenter, unsigned blockSize);
 
     /* TODO: Define this method in camera class instead?
      *       And create class for AABB's? */
     bool insideViewFrustum(Camera& camera);
     bool checkPlane(Plane& plane);
 
-    /* A GeoMipMap can be accessed with the current LOD as the index */
-    std::vector<GeoMipMap> geoMipMaps;
-    std::vector<unsigned> indices;
+    void render(Camera& camera);
 
+    /* Pointer to the current GeoMipMapping instance */
     GeoMipMapping* terrain;
 
-    /*
-     * The EBO of a block contains all indices of a block, for each LOD level
-     * and border configuration. When rendering a block, the subset of the
-     * indices for a certain LOD level and border configuration must be
-     * selected, e.g. (LOD 0, 0000).
-     *
-     * The start indices and sizes of these subsets are stored
-     * in the below fields borderStarts, borderSizes, centerStarts and
-     * centerSizes.
-     */
-    std::vector<unsigned> borderStarts;
-    std::vector<unsigned> borderSizes;
-    std::vector<unsigned> centerStarts;
-    std::vector<unsigned> centerSizes;
+    /* Center of the AABB, which is used or view-frustum culling */
+    glm::vec3 _aabbCenter;
 
-    /* World-space center for the distance calculation and AABB, which is used
-     * for the frustum culling */
-    glm::vec3 _center;
+    /* Actual center in the world space (y-coordinate read from the heightmap) */
+    glm::vec3 _trueCenter;
 
-    /* Squared to save a square root call */
-    float _squaredDistanceToCamera;
+    float _minY, _maxY;
 
-    unsigned _blockSize;
+    /* 2D translation to place the flat mesh to its actual center */
+    glm::vec2 translation;
+
     unsigned _currentLod;
     unsigned _blockId;
-    unsigned _ebo;
-    unsigned _startIndex; /* Top-left corner of the block */
+    unsigned _blockSize;
 
     /* The bitmap represents the bordering left, right, top, bottom blocks, where
      * each bit is either 1 if the bordering block has a lower LOD, otherwise 0 */

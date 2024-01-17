@@ -34,38 +34,22 @@ Prof. Marcus Hudritsch}\\
 \maketitle
 
 \begin{abstract}
- Rendering terrains is a central task for video games, geographic information systems and simulators, 
+ Rendering terrains is a central task for video games, geographic information systems and simulation software, 
  but also computationally expensive. Optimizations, one of which is the level of detail (LOD),
- are necessary in order to ensure appropriate performances.
- This project aims to give an overview of the topic of terrain rendering.
- As part of this project, a demo terrain renderer (ATLOD) was implemented in C++ and OpenGL.
- ATLOD currently supports naive brute-force rendering, GeoMipMapping, TODO.
+ are necessary in order to ensure adequate performances.
+ A demo terrain renderer (named ATLOD) was developed. The implemented algorithm 
+ is based on GeoMipMapping \cite{geomipmapping} and GPU-based Geometry Clipmaps \cite{gpugeomclipmaps}.
 \end{abstract}
-
-
-%\chapter*{Acknowledgements}
-%\thispagestyle{empty}
-%I would like to thank my dear
-%\clearpage
 
 \tableofcontents
 
-% Alternative structure
-% - Introduction
-% - Existing Work and Literature
-%   - 
-% - Basics of Terrain Rendering
-% - Terrain LOD in Real-world Systems
-% - GeoMipMapping
-% - Geometry Clipmaps
-% - Results
-% - Discussion and Conclusion
+\listoftables
+\listoffigures
+\lstlistoflistings
 
 \include{chapters/introduction}
-\include{chapters/existing-work-and-literature}
 \include{chapters/basics-of-terrain-rendering}
-\include{chapters/algorithms-and-approaches-for-terrain-lod}
-\include{chapters/terrain-lod-in-real-world-systems}
+\include{chapters/existing-work-and-literature}
 \include{chapters/atlod}
 \include{chapters/results}
 \include{chapters/discussion-and-conclusion}

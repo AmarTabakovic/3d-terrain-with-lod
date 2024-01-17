@@ -4,6 +4,7 @@
 #include "shader.h"
 
 #include <string>
+#include <vector>
 
 /**
  * @brief The Skybox class
@@ -11,15 +12,16 @@
 class Skybox {
 public:
     Skybox();
-    void loadTexture(std::string& fileName);
+    void loadTexture(const std::string& fileName);
     void loadBuffers();
     void render();
     void unloadBuffers();
+    Shader shader();
 
 private:
+    std::vector<unsigned> _textureFaces;
     Shader _shader;
     unsigned _textureId;
-    unsigned _ebo;
     unsigned _vbo;
     unsigned _vao;
 };

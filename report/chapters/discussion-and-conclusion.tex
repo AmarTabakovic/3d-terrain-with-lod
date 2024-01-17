@@ -1,3 +1,10 @@
 \chapter{Discussion and Conclusion}
 \section{Further Work}
+ATLOD can be extended in a number of ways:
+\begin{itemize}
+  \item Additional terrain LOD algorithms: ATLOD currently only supports GeoMipMapping. Some interesting and relevant algorithms that could be added 
+        are GPU-based Geometry Clipmaps, CDLOD and Concurrent Binary Trees.
+  \item Terrain streaming/paging: currently, ATLOD only loads a single instance of \texttt{GeoMipMapping}. ATLOD could be extended to load multple 
+        instances with dynamic loading and offloading of instances and heightmaps, which would allow for even larger (theoretically infinite) terrains.
+\end{itemize}
 \section{Reflexion}

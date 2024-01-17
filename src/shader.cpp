@@ -32,8 +32,9 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath)
         glGetProgramInfoLog(_id, 512, NULL, info);
         std::cout << "Shader linking failed: "
                   << info << std::endl;
+        std::exit(1);
     } else {
-        std::cout << "Successfully linked shader" << std::endl;
+        std::cout << "Successfully linked shaders" << std::endl;
     }
 
     /* Shaders are linked, therefore no longer necessary, delete them */
@@ -71,6 +72,7 @@ int Shader::loadShaderProgram(const char* path, GLenum type)
 
     } catch (std::ifstream::failure e) {
         std::cout << "Shader code could not be read." << std::endl;
+        std::exit(1);
     }
 
     const char* shaderCodeCStr = shaderCode.c_str();
@@ -90,7 +92,7 @@ int Shader::loadShaderProgram(const char* path, GLenum type)
         glGetShaderInfoLog(shaderId, 512, NULL, info);
         std::cout << "Shader compilation failed: " << info << std::endl;
         std::cout << glGetError() << std::endl;
-        exit(-1);
+        exit(1);
     };
 
     std::cout << "Compiled shader program with ID " << shaderId << std::endl;

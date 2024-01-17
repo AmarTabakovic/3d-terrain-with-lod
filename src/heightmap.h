@@ -11,26 +11,34 @@ class Heightmap {
 public:
     // Heightmap(unsigned width, unsigned height);
     Heightmap();
-    void load(std::string& fileName);
-    void loadImage(std::string& fileName);
-    void loadAsciiGrid(std::string& fileName);
-    void loadXyz(std::string& fileName);
+    void load(const std::string& fileName);
+    void loadImage(const std::string& fileName);
+    // void loadAsciiGrid(std::string& fileName);
+    // void loadXyz(std::string& fileName);
 
-    /* TODO: procedureal generation */
-    void generate();
+    void generateGlTexture();
+    void destroyGlTexture();
+    unsigned heightmapTextureId();
 
     /* Getters */
     unsigned width();
     unsigned height();
+    std::vector<unsigned short> data();
 
     unsigned at(unsigned x, unsigned z);
     void push(unsigned heightValue);
     void clear();
 
+    /* Minimum and maximum heightmap y-values */
+    unsigned short min, max;
+
+    unsigned short* tempData;
+
 private:
-    std::vector<unsigned> _data;
+    std::vector<unsigned short> _data;
     unsigned _width;
     unsigned _height;
+    unsigned _heightmapTextureId;
 };
 
 #endif // HEIGHTMAP_H

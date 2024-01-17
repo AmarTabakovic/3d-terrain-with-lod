@@ -196,7 +196,7 @@ Terrain::Terrain()
  * @brief Terrain::loadTexture
  * @param fileName
  */
-void Terrain::loadTexture(std::string& fileName)
+void Terrain::loadTexture(const std::string& fileName)
 {
     std::cout << "Loading texture" << std::endl;
     glGenTextures(1, &_textureId);
@@ -222,10 +222,22 @@ void Terrain::loadTexture(std::string& fileName)
 
     std::cout << "Loaded texture" << std::endl;
     _hasTexture = true;
+    shader().use();
+    shader().setInt("texture1", 0);
 
     /* Bind texture ID */
     /*shader->use();
     shader->setInt("texture1", 0);*/
+}
+
+unsigned Terrain::width()
+{
+    return _width;
+}
+
+unsigned Terrain::height()
+{
+    return _height;
 }
 
 float Terrain::xzScale()
@@ -236,6 +248,11 @@ float Terrain::xzScale()
 float Terrain::yScale()
 {
     return _yScale;
+}
+
+void Terrain::yScale(float yScale)
+{
+    _yScale = yScale;
 }
 
 Shader& Terrain::shader()
