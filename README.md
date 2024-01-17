@@ -1,7 +1,7 @@
 # 3d-terrain-level-of-detail
 A small terrain renderer with level of detail (LOD), developed as part of the module "Project 2" at the Bern University of Applied Sciences
 
-![ATLOD][doc/preview.png]
+![ATLOD](doc/preview.png)
 
 ## Repository Structure
 This repository is structured as follows:
