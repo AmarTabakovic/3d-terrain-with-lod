@@ -97,6 +97,8 @@ public:
     void pitch(float pitch);
 
     void intersects();
+    bool checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2);
+    bool insideViewFrustum(glm::vec3 p1, glm::vec3 p2);
 
     /* Automatic flying and 360-look-around methods */
     void lerpFly(float lerpFactor);

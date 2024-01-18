@@ -49,6 +49,35 @@ void Camera::aspectRatio(float aspectRatio)
     _aspectRatio = aspectRatio;
 }
 
+bool Camera::insideViewFrustum(glm::vec3 p1, glm::vec3 p2)
+{
+    // Frustum frustum = camera.viewFrustum();
+    Frustum frustum = _viewFrustum;
+
+    return (checkPlane(frustum.leftFace, p1, p2)
+        && checkPlane(frustum.rightFace, p1, p2)
+        && checkPlane(frustum.topFace, p1, p2)
+        && checkPlane(frustum.bottomFace, p1, p2)
+        && checkPlane(frustum.nearFace, p1, p2)
+        && checkPlane(frustum.farFace, p1, p2));
+}
+
+bool Camera::checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2)
+{
+    /* TODO: I would be very surprised if this works */
+    float minY = p1.y;
+    float maxY = p2.y;
+    float width = p2.x - p1.x;
+    glm::vec3 aabbCenter = p1 + ((p2 - p1) / 2.0f);
+
+    float halfHeight = (maxY - minY) / 2.0f;
+    float halfBlockSize = width / 2.0f;
+    float r = halfBlockSize * std::abs(plane.normal.x)
+        + halfHeight * std::abs(plane.normal.y)
+        + halfBlockSize * std::abs(plane.normal.z);
+
+    return -r <= plane.getSignedDistanceToPlane(aabbCenter);
+}
 
 /**
  * @brief Camera::getViewMatrix

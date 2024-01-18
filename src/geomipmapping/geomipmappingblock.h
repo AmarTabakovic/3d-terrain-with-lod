@@ -1,9 +1,9 @@
 #ifndef GEOMIPMAPPINGBLOCK_H
 #define GEOMIPMAPPINGBLOCK_H
 
-#include "../camera.h"
 // #include "geomipmapping.h"
 
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <vector>
 
@@ -19,14 +19,7 @@ class GeoMipMapping;
  */
 class GeoMipMappingBlock {
 public:
-    GeoMipMappingBlock(unsigned blockId, glm::vec3 trueCenter, glm::vec3 aabbCenter, unsigned blockSize);
-
-    /* TODO: Define this method in camera class instead?
-     *       And create class for AABB's? */
-    bool insideViewFrustum(Camera& camera);
-    bool checkPlane(Plane& plane);
-
-    void render(Camera& camera);
+    GeoMipMappingBlock(unsigned blockId, glm::vec3 trueCenter, glm::vec3 aabbCenter, /* float minY, float maxY*/ glm::vec3 p1, glm::vec3 p2, glm::vec2 translation);
 
     /* Pointer to the current GeoMipMapping instance */
     GeoMipMapping* terrain;
@@ -40,11 +33,14 @@ public:
     float _minY, _maxY;
 
     /* 2D translation to place the flat mesh to its actual center */
-    glm::vec2 translation;
+    glm::vec2 _translation;
 
     unsigned _currentLod;
     unsigned _blockId;
     unsigned _blockSize;
+
+    /* Points defining the AABB */
+    glm::vec3 _p1, _p2;
 
     /* The bitmap represents the bordering left, right, top, bottom blocks, where
      * each bit is either 1 if the bordering block has a lower LOD, otherwise 0 */

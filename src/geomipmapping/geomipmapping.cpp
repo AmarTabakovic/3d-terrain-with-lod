@@ -139,62 +139,53 @@ void GeoMipMapping::render(Camera camera)
     //glBindTexture(GL_TEXTURE_2D, heightmapTextureId);
     shader().setInt("heightmapTexture", 1);
 
-    // TODO
-    // root.render(camera);
+    /* Apply overlay texture (if existent) */
+    if (_hasTexture) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, _textureId);
+        shader().setFloat("doTexture", 1.0f);
+    } else
+        shader().setFloat("doTexture", 0.0f);
+
+    /* Apply heightmap texture */
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, _heightmap.heightmapTextureId());
 
     /* ============================== Second pass =============================
      * - For each block:
      *   - Check frustum culling
-     *   - Render center and border subblocks
-     */
+     *   - Set uniforms
+     *   - Render center and border subblocks */
     for (unsigned i = 0; i < _nBlocksZ; i++) {
         for (unsigned j = 0; j < _nBlocksX; j++) {
-            //glActiveTexture(GL_TEXTURE1);
-            //glBindTexture(GL_TEXTURE_2D, heightmapTextureId);
-            //shader().setInt("heightmapTexture", 1);
-            GeoMipMappingBlock& currblock = getBlock(j, i);
+            GeoMipMappingBlock& block = getBlock(j, i);
 
-            if (_hasTexture) {
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, _textureId);
-                shader().setFloat("doTexture", 1.0f);
-            } else
-                shader().setFloat("doTexture", 0.0f);
-
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, _heightmap.heightmapTextureId());
-
-            /* TODO:
-             * - Collect visible blocks in first pass
-             * - Quadtrees */
-            if (_frustumCullingActive && !currblock.insideViewFrustum(_lastCamera))
-               continue;
-
-            unsigned currentIndex = currblock._currentLod;
+            /* Skip current block if not inside view frustum */
+            if (_frustumCullingActive && !_lastCamera.insideViewFrustum(block._p1, block._p2))
+                continue;
 
             float r = 0.3f, g = 0.3f, b = 0.3f;
 
-            if (currblock._currentLod % 3 == 0)
+            if (block._currentLod % 3 == 0)
                 r = 0.7f;
-            else if (currblock._currentLod % 3 == 1)
+            else if (block._currentLod % 3 == 1)
                 g = 0.7f;
             else
                 b = 0.7f;
 
             shader().setVec4("inColor", glm::vec4(r, g, b, 1.0f));
-
             shader().setFloat("textureWidth", _heightmap.width());
             shader().setFloat("textureHeight", _heightmap.height());
-            shader().setVec2("offset", currblock.translation);
-
+            shader().setVec2("offset", block._translation);
             shader().setFloat("maxT", _heightmap.max);
             shader().setFloat("minT", _heightmap.min);
 
+            unsigned currentIndex = block._currentLod;
             currentIndex -= _minLod;
 
             /* First render the center subblocks (only for LOD >= 2, since
              * LOD 0 and 1 do not have a center block) */
-            if (currblock._currentLod >= 2) {
+            if (block._currentLod >= 2) {
                 glDrawElements(GL_TRIANGLE_STRIP,
                     centerSizes[currentIndex],
                     GL_UNSIGNED_INT,
@@ -204,7 +195,7 @@ void GeoMipMapping::render(Camera camera)
             /* Then render the border subblocks
              * Note: This couild probably be optimized with
              * glMultiDrawElements() */
-            currentIndex = currentIndex * 16 + currblock._currentBorderBitmap;
+            currentIndex = currentIndex * 16 + block._currentBorderBitmap;
             glDrawElements(GL_TRIANGLE_STRIP,
                 borderSizes[currentIndex],
                 GL_UNSIGNED_INT,
@@ -263,13 +254,12 @@ GeoMipMapping::GeoMipMapping(Heightmap heightmap, float xzScale, float yScale, u
         std::exit(1);
     }
 
-    //loadHeightmapTexture();
-    //_heightmap.generateGlTexture();
     shader().use();
     shader().setInt("texture1", 0);
     shader().setInt("heightmapTexture", 1);
 
     glm::vec2 terrainCenter(_width / 2.0f, _height / 2.0f);
+
     /* Generate blocks */
     for (unsigned i = 0; i < _nBlocksZ; i++) {
         for (unsigned j = 0; j < _nBlocksX; j++) {
@@ -298,21 +288,17 @@ GeoMipMapping::GeoMipMapping(Heightmap heightmap, float xzScale, float yScale, u
             glm::vec3 aabbCenter(((-(float)_width * _xzScale) / 2.0f) + centerX * _xzScale, aabbY, ((-(float)_height * _xzScale) / 2.0f) + centerZ * _xzScale);
             glm::vec3 blockCenter(aabbCenter.x, trueY, aabbCenter.z);
 
-            GeoMipMappingBlock block = GeoMipMappingBlock(currentBlockId, blockCenter, aabbCenter, _blockSize);
-            block._minY = minY;
-            block._maxY = maxY;
-            block.translation = glm::vec2(centerX, centerZ) - terrainCenter;
+            glm::vec2 translation = glm::vec2(centerX, centerZ) - terrainCenter;
 
-            //std::cout << "===== BLOCK " << currentBlock << " =====\n";
-            //std::cout << "x, y: " << j << ", " << i << std::endl;
-            //std::cout << "blockCenter: " << blockCenter.x << ", " << blockCenter.y << ", " << blockCenter.z << std::endl;
+            glm::vec3 p1 = glm::vec3(aabbCenter.x - (blockSize / 2.0f), aabbCenter.y - ((maxY - minY) / 2.0f), aabbCenter.z - (blockSize / 2.0f));
+            glm::vec3 p2 = glm::vec3(aabbCenter.x + (blockSize / 2.0f), aabbCenter.y + ((maxY - minY) / 2.0f), aabbCenter.z + (blockSize / 2.0f));
+
+            GeoMipMappingBlock block = GeoMipMappingBlock(currentBlockId, blockCenter, aabbCenter, p1, p2, translation);
 
             _blocks.push_back(block);
         }
     }
     std::cout << "Finished blocks\n";
-    // TODO
-    // root.build();
 }
 
 unsigned GeoMipMapping::nBlocksX()
@@ -325,21 +311,11 @@ unsigned GeoMipMapping::nBlocksZ()
     return _nBlocksZ;
 }
 
-/**
- * @brief GeoMipMapping::~GeoMipMapping
- */
 GeoMipMapping::~GeoMipMapping()
 {
     std::cout << "GeoMipMapping terrain destroyed" << std::endl;
 }
 
-/**
- * @brief GeoMipMapping::calculateBorderBitmap
- * @param currentBlockId
- * @param x
- * @param y
- * @return
- */
 unsigned GeoMipMapping::calculateBorderBitmap(unsigned currentBlockId, unsigned x, unsigned z)
 {
     unsigned currentLod = _blocks[currentBlockId]._currentLod;

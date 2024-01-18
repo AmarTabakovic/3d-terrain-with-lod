@@ -63,7 +63,7 @@ Camera camera = Camera(glm::vec3(0.0f, 1.0f, 0.0f),
     0.0f, 100000.0f, (float)windowWidth / (float)windowHeight,
     0.0f, -40.4f);
 
-glm::vec3 skyColor = glm::vec3(0.0, 0.0, 0.0); // glm::vec3(162, 193, 215) * (1.0f / 255.0f);
+glm::vec3 skyColor = glm::vec3(162, 193, 215) * (1.0f / 255.0f);
 glm::vec3 terrainColor = glm::vec3(120.0f, 117.0f, 115.0f) * (1.0f / 255.0f);
 
 // glm::vec3 lightPos(10000.0f, 5000.0f, 10000.0f);
@@ -234,14 +234,20 @@ int parseArguments(int argc, char** argv)
         }
     }
 
+    /* At least one terrain must be loaded */
+    if (!loadGeoMipMapping && !loadNaiveRendering) {
+        std::cerr << "Must load at least one terrain (naive or GeoMipMapping)" << std::endl;
+        return 1;
+    }
+
     /* At the very least, the folder name of the 'data' folder and the filename
      * of the heightmap are required to be specified by the user */
     if (dataFolderPath.empty()) {
-        std::cout << "The data folder path must be given as a command line argument" << std::endl;
+        std::cerr << "The data folder path must be given as a command line argument" << std::endl;
         return 1;
     }
     if (heightmapFileName.empty()) {
-        std::cout << "The heightmap file name must be given as a command line argument" << std::endl;
+        std::cerr << "The heightmap file name must be given as a command line argument" << std::endl;
         return 1;
     }
 
@@ -318,7 +324,7 @@ void renderMainOptions()
 void renderAutomaticMovementOptions()
 {
     ImGui::Begin("Automatic movement options", &showAutomaticMovementOptions, ImGuiWindowFlags_MenuBar);
-        ImGui::SeparatorText("Flight");
+    ImGui::SeparatorText("Flight");
 
     ImGui::SliderFloat("Flight velocity", &flightVel, 1, 100, "%.2f");
     ImGui::InputFloat3("Origin", (float*)&camOrigin, "%.2f");
@@ -386,45 +392,40 @@ int run()
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
 
+    /* Load skybox */
     skybox = new Skybox();
     skybox->loadBuffers();
     skybox->loadTexture(dataFolderPath + "/skybox/" + skyboxFolderName + "/");
 
-    // std::string heightmapPath = "../3d-terrain-with-lod/data/testfile.png";
-    // std::string heightmapPath = "/Users/amartabakovic/Desktop/flat-1025x1025.png";
-    // std::string heightmapPath = "/Users/amartabakovic/Desktop/big-terrain.png";
-    // std::string heightmapPath = dataFolderPath + "/heightmaps/" + heightmapFileName;
-
+    /* Load heightmap */
     Heightmap heightmap;
-    heightmap.load(dataFolderPath + "/heightmaps/" + heightmapFileName);
-    heightmap.generateGlTexture();
+    heightmap.load(dataFolderPath + "/heightmaps/" + heightmapFileName, true);
 
     /* Set camera origin and destination to bottom left corner and top right corner respectively */
     camOrigin = glm::vec3(-(int)heightmap.width() / 2, 200, -(int)heightmap.height() / 2);
     camDest = glm::vec3(heightmap.width() / 2, 200, heightmap.height() / 2);
 
+    /* Load naive rendering (if set in command line arguments) */
     if (loadNaiveRendering) {
         naiveRenderer = new NaiveRenderer(heightmap, 1.0f, yScale);
         naiveRenderer->loadBuffers();
         if (!overlayFileName.empty())
             naiveRenderer->loadTexture(dataFolderPath + std::string("/overlays/") + overlayFileName);
-    }
 
-    geoMipMapping = new GeoMipMapping(heightmap, 1.0f, yScale, geoMipMappingBlockSize, geoMipMappingMinLod, geoMipMappingMaxLod);
-    geoMipMapping->loadBuffers();
-
-    if (!overlayFileName.empty())
-        geoMipMapping->loadTexture(dataFolderPath + std::string("/overlays/") + overlayFileName);
-
-    if (loadGeoMipMapping) {
-        current = geoMipMapping;
-        activeTerrain = ActiveTerrain::GEOMIPMAPPING;
-    } else if (loadNaiveRendering) {
         current = naiveRenderer;
         activeTerrain = ActiveTerrain::NAIVE;
-    } else {
-        std::cerr << "Must load at least one terrain" << std::endl;
-        return 1;
+    }
+
+    /* Load GeoMipMapping (if set in command line arguments) */
+    if (loadGeoMipMapping) {
+        geoMipMapping = new GeoMipMapping(heightmap, 1.0f, yScale, geoMipMappingBlockSize, geoMipMappingMinLod, geoMipMappingMaxLod);
+        geoMipMapping->loadBuffers();
+
+        if (!overlayFileName.empty())
+            geoMipMapping->loadTexture(dataFolderPath + std::string("/overlays/") + overlayFileName);
+
+        current = geoMipMapping;
+        activeTerrain = ActiveTerrain::GEOMIPMAPPING;
     }
 
     /* Height values are now in vertices/textures, no longer needed in memory */
@@ -443,13 +444,16 @@ int run()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        /* Update frame time */
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
+        /* Update window title with framerate */
         std::string newTitle = "ATLOD: " + std::to_string(1.0f / deltaTime) + " FPS";
         glfwSetWindowTitle(window, newTitle.c_str());
 
+        /* Set active terrain */
         switch (activeTerrain) {
         case NAIVE:
             current = naiveRenderer;
@@ -459,11 +463,9 @@ int run()
             break;
         }
 
+        /* Get global camera yaw and pitch (for ImGui camera options) */
         camYaw = camera.yaw();
         camPitch = camera.pitch();
-
-        // camera.yaw(camYaw);
-        // camera.pitch(camPitch);
 
         if (showOptions) {
             renderMainOptions();
@@ -473,10 +475,12 @@ int run()
                 renderGeoMipMappingOptions();
         }
 
+        /* Overwrite camera yaw and pitch with values from ImGui options */
         camera.yaw(camYaw);
         camera.pitch(camPitch);
         camera.updateCameraVectors();
 
+        /* Update camera values if flying */
         if (camera.isFlying) {
             camera.lerpFly(posLerp);
             posLerp += 0.0005 + flightVel / 50000;
@@ -487,6 +491,7 @@ int run()
             }
         }
 
+        /* Update camera values if rotating 360 degrees */
         if (camera.isLookingAround360) {
             camera.lerpLook(lookLerp);
             lookLerp += lookAroundVel / 10000;
@@ -500,21 +505,24 @@ int run()
 
         camera.updateFrustum();
 
+        /* Update window if resized */
         int wWidth, wHeight;
         glfwGetFramebufferSize(window, &wWidth, &wHeight);
         windowWidth = wWidth;
         windowHeight = wHeight;
 
         if (renderWireframe) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
             if (isDark)
                 glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             else
                 glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        } else
+        } else {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             glClearColor(skyColor.r, skyColor.g, skyColor.b, 1.0f);
+        }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 
         glm::mat4 projection = glm::perspective(glm::radians(camera.zoom()), (float)windowWidth / (float)windowHeight, 0.1f, 100000.0f);
         glm::mat4 view = camera.getViewMatrix();
@@ -533,6 +541,7 @@ int run()
         current->shader().setFloat("fogDensity", fogDensity);
         current->shader().setFloat("doFog", (float)doFog);
 
+        /* Update GeoMipMapping options */
         if (activeTerrain == GEOMIPMAPPING) {
             GeoMipMapping* casted = (GeoMipMapping*)current;
             casted->baseDistance(geoMipMappingBaseDist);
@@ -548,13 +557,11 @@ int run()
         model = glm::scale(model, glm::vec3(current->xzScale(), current->yScale(), current->xzScale()));
         current->shader().setMat4("model", model);
 
-        /* http://www.lighthouse3d.com/tutorials/glsl-12-tutorial/the-normal-matrix/ */
-        current->shader().setMat4("normalMatrix", glm::transpose(glm::inverse(model)));
-
-        if (renderWireframe)
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        else
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        /* Naive terrain additionally requires normal matrix for shading */
+        if (activeTerrain == NAIVE) {
+            /* http://www.lighthouse3d.com/tutorials/glsl-12-tutorial/the-normal-matrix/ */
+            current->shader().setMat4("normalMatrix", glm::transpose(glm::inverse(model)));
+        }
 
         try {
             current->render(camera);
@@ -566,8 +573,8 @@ int run()
             return 1;
         }
 
+        /* Render skybox */
         if (!renderWireframe && renderSkybox) {
-            // glDepthFunc(GL_LEQUAL);
             skybox->shader().use();
             view = glm::mat4(glm::mat3(camera.getViewMatrix()));
             skybox->shader().setMat4("projection", projection);
@@ -591,6 +598,7 @@ int run()
  */
 void shutDown()
 {
+    /* Unload vertex and index buffers */
     skybox->unloadBuffers();
 
     if (loadGeoMipMapping)
@@ -599,6 +607,7 @@ void shutDown()
     if (loadNaiveRendering)
         naiveRenderer->unloadBuffers();
 
+    /* Delete instances */
     delete skybox;
 
     if (loadGeoMipMapping)
@@ -677,7 +686,6 @@ void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action
  */
 void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
-    /* TODO Resize camera frustum as well upon resize*/
     glViewport(0, 0, width, height);
     camera.aspectRatio((float)width / (float)height);
 }

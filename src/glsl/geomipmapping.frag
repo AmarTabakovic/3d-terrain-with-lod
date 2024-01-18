@@ -51,8 +51,8 @@ void main()
        if (doTexture > 0.5) color = texture(texture1, texPos).xyz;
        else color = terrainColor;
 
-       //vec3 ambient = calculateAmbient(lightColor, 0.5f);
-       vec3 ambient = vec3(0,0,0);
+       vec3 ambient = calculateAmbient(lightColor, 0.5f);
+       //vec3 ambient = vec3(0,0,0);
        vec3 diffuse = calculateDiffuse(lightColor);
        color = (ambient + diffuse) * color;
 
