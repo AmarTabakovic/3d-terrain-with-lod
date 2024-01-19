@@ -42,7 +42,12 @@ void Heightmap::clear()
     _width = 0;
 }
 
-void Heightmap::generateGlTexture(unsigned short* data)
+void Heightmap::unloadTexture()
+{
+    glDeleteTextures(1, &_heightmapTextureId);
+}
+
+void Heightmap::loadTexture(unsigned short* data)
 {
 
     glGenTextures(1, &_heightmapTextureId);
@@ -85,7 +90,7 @@ void Heightmap::loadImage(const std::string& fileName, bool loadTextureHeightmap
         _height = height;
 
         if (loadTextureHeightmap)
-            generateGlTexture(data);
+            loadTexture(data);
 
         std::cout << "Loaded heightmap image of size " << width << " x " << height << std::endl;
         std::cout << "Num channels: " << nrChannels << std::endl;
@@ -101,7 +106,7 @@ void Heightmap::loadImage(const std::string& fileName, bool loadTextureHeightmap
             unsigned short* pixelOffset = data + (j + width * i) * bytePerPixel;
             unsigned short y = pixelOffset[0];
 
-            push(y);
+            _data.push_back(y);
         }
     }
 
@@ -117,9 +122,4 @@ unsigned Heightmap::at(unsigned x, unsigned z)
         std::cout << "Failed fetching height at " << z << ", " << x << std::endl;
         std::exit(1);
     }
-}
-
-void Heightmap::push(unsigned heightValue)
-{
-    _data.push_back(heightValue);
 }

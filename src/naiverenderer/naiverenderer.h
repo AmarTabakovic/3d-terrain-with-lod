@@ -2,7 +2,6 @@
 #define NAIVERENDERER_H
 
 #include "../camera.h"
-#include "../shader.h"
 #include "../terrain.h"
 
 #include <GL/glew.h>
@@ -10,10 +9,6 @@
 
 #include "../heightmap.h"
 
-/**
- * @brief Encapsulates the naive terrain rendering algorithm in which
- *        each vertex gets rendered without any LOD considerations.
- */
 class NaiveRenderer : public Terrain {
 public:
     NaiveRenderer(Heightmap heightmap, float xzScale = 1.0f, float yScale = 1.0f);

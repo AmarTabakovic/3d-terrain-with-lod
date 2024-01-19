@@ -3,9 +3,6 @@
 
 #include <vector>
 
-/**
- * @brief The Heightmap class
- */
 class Heightmap {
 
 public:
@@ -13,8 +10,8 @@ public:
     void load(const std::string& fileName, bool loadTextureHeightmap);
     void loadImage(const std::string& fileName, bool loadTextureHeightmap);
 
-    void generateGlTexture(unsigned short* data);
-    void destroyGlTexture();
+    void loadTexture(unsigned short* data);
+    void unloadTexture();
     unsigned heightmapTextureId();
 
     /* Getters */
@@ -23,7 +20,6 @@ public:
     std::vector<unsigned short> data();
 
     unsigned at(unsigned x, unsigned z);
-    void push(unsigned heightValue);
     void clear();
 
     /* Minimum and maximum heightmap y-values */

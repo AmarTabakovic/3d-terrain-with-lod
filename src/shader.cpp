@@ -1,17 +1,7 @@
 #include "shader.h"
 
-/**
- * @brief Shader::Shader
- *
- * TODO: Figure out way to initialize this class properly in the Terrain classes
- */
 Shader::Shader() { }
 
-/**
- * @brief Shader::Shader
- * @param vertexPath path to the vertex shader code
- * @param fragmentPath path to the fragment shader code
- */
 Shader::Shader(const char* vertexPath, const char* fragmentPath)
 {
     int success;
@@ -42,12 +32,6 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath)
     glDeleteShader(fragmentId);
 }
 
-/**
- * @brief Shader::loadShaderProgram
- * @param path
- * @param type
- * @return
- */
 int Shader::loadShaderProgram(const char* path, GLenum type)
 {
     std::string shaderCode;
@@ -99,151 +83,75 @@ int Shader::loadShaderProgram(const char* path, GLenum type)
     return shaderId;
 }
 
-/**
- * @brief Shader::handleErrors
- */
 void Shader::handleErrors()
 {
 }
 
-/**
- * @brief
- */
 void Shader::use()
 {
     glUseProgram(this->_id);
 }
 
-/**
- * @brief Returns the shader program ID.
- * @return ID of the shader program
- */
 unsigned int Shader::id() const
 {
     return _id;
 }
 
-/**
- * @brief Shader::setBool
- * @param name
- * @param value
- */
 void Shader::setBool(const std::string& name, bool value) const
 {
     glUniform1i(glGetUniformLocation(_id, name.c_str()), (int)value);
 }
 
-/**
- * @brief Shader::setInt
- * @param name
- * @param value
- */
 void Shader::setInt(const std::string& name, int value) const
 {
     glUniform1i(glGetUniformLocation(_id, name.c_str()), value);
 }
 
-/**
- * @brief Shader::setFloat
- * @param name
- * @param value
- */
 void Shader::setFloat(const std::string& name, float value) const
 {
     glUniform1f(glGetUniformLocation(_id, name.c_str()), value);
 }
 
-/**
- * @brief Shader::setVec2
- * @param name
- * @param value
- */
 void Shader::setVec2(const std::string& name, const glm::vec2& value) const
 {
     glUniform2fv(glGetUniformLocation(_id, name.c_str()), 1, &value[0]);
 }
 
-/**
- * @brief Shader::setVec2
- * @param name
- * @param x
- * @param y
- */
 void Shader::setVec2(const std::string& name, float x, float y) const
 {
     glUniform2f(glGetUniformLocation(_id, name.c_str()), x, y);
 }
 
-/**
- * @brief Shader::setVec3
- * @param name
- * @param value
- */
 void Shader::setVec3(const std::string& name, const glm::vec3& value) const
 {
     glUniform3fv(glGetUniformLocation(_id, name.c_str()), 1, &value[0]);
 }
 
-/**
- * @brief Shader::setVec3
- * @param name
- * @param x
- * @param y
- * @param z
- */
 void Shader::setVec3(const std::string& name, float x, float y, float z) const
 {
     glUniform3f(glGetUniformLocation(_id, name.c_str()), x, y, z);
 }
 
-/**
- * @brief Shader::setVec4
- * @param name
- * @param value
- */
 void Shader::setVec4(const std::string& name, const glm::vec4& value) const
 {
     glUniform4fv(glGetUniformLocation(_id, name.c_str()), 1, &value[0]);
 }
 
-/**
- * @brief Shader::setVec4
- * @param name
- * @param x
- * @param y
- * @param z
- * @param w
- */
 void Shader::setVec4(const std::string& name, float x, float y, float z, float w) const
 {
     glUniform4f(glGetUniformLocation(_id, name.c_str()), x, y, z, w);
 }
 
-/**
- * @brief Shader::setMat2
- * @param name
- * @param mat
- */
 void Shader::setMat2(const std::string& name, const glm::mat2& mat) const
 {
     glUniformMatrix2fv(glGetUniformLocation(_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 }
 
-/**
- * @brief Shader::setMat3
- * @param name
- * @param mat
- */
 void Shader::setMat3(const std::string& name, const glm::mat3& mat) const
 {
     glUniformMatrix3fv(glGetUniformLocation(_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 }
 
-/**
- * @brief Shader::setMat4
- * @param name
- * @param mat
- */
 void Shader::setMat4(const std::string& name, const glm::mat4& mat) const
 {
     glUniformMatrix4fv(glGetUniformLocation(_id, name.c_str()), 1, GL_FALSE, &mat[0][0]);

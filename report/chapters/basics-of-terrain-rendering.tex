@@ -135,6 +135,7 @@ Cracks can be solved by either of the following, depending on the capabilities o
 \begin{itemize}
   \item Removing the vertex in question, causing the higher and lower LOD meshes to be connected seamlessly (in figure~\ref{fig:crack-example} vertex $v_{\text{high}}$).
   \item Inserting an extra vertex at the border edge of the lower LOD mesh \cite[p.~194]{lodfor3dgraphics} (in figure~\ref{fig:crack-example} on top of vertex $v_{\text{high}}$). The disadvantage of this is that an extra vertex needs to get created.
+  \item Covering the cracks area by rendering a strip \cite{gpugeomclipmaps}
 \end{itemize}
 
 \subsection{Popping}

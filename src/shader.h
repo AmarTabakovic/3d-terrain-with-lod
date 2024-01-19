@@ -10,12 +10,8 @@
 #include <sstream>
 #include <string>
 
-/**
- * @brief Encapsulates a shader program with a vertex and fragment shader.
- *
- * The basic structure of this class is based on the Shader class from
- * learnopengl.com.
- */
+/* The basic structure of this class is based on the Shader class from
+ * learnopengl.com. */
 class Shader {
 public:
     Shader();

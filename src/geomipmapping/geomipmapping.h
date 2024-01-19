@@ -3,35 +3,50 @@
 
 #include "../camera.h"
 #include "../terrain.h"
-#include "geomipmappingblock.h"
-#include "geomipmappingquadtree.h"
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-/**
- * @brief Encapsulates the GeoMipMapping terrain rendering algorithm.
- *
- * The GeoMipMapping algorithm splits up the terrain into blocks of size
+struct GeoMipMappingBlock {
+    unsigned blockId;
+
+    /* Actual center in the world space (y-coordinate read from the heightmap) */
+    glm::vec3 worldCenter;
+
+    /* Points defining the AABB. _p1 contains minY and _p2 contains maxY */
+    glm::vec3 p1, p2;
+
+    /* 2D translation to place the flat mesh to its actual center */
+    glm::vec2 translation;
+
+    unsigned currentLod;
+
+    /* The bitmap represents the bordering left, right, top, bottom blocks, where
+     * each bit is either 1 if the bordering block has a lower LOD, otherwise 0 */
+    unsigned currentBorderBitmap;
+};
+
+/* The GeoMipMapping algorithm splits up the terrain into blocks of size
  * _blockSize, which must be of the form 2^n + 1. These blocks contain
  * only metadata, such as current LOD level, min. and max. Y-values,
  * its center in world space, etc.
  *
- * The terrain has a single vertex buffer of side length _blockSize
- * are cached in multiple LOD resolutions, which are called GeoMipMaps.
- * Each GeoMipMap is split up into the center and border area, and
- * each possible border configuration (represented by a bitmask of the
- * form left-right-top-bottom) is stored as well in the index buffer.
+ * The terrain has a single vertex buffer containing the
+ * xz-vertices of a flat mesh of size _blockSize * _blockSize,
+ * and a single index buffer, which stores the indices of the flat mesh
+ * as follows: the flat mesh is split into its center and border area.
+ * The indices of the center area are stored at every LOD resolution,
+ * and the indices of the border area are stored at every LOD resolution
+ * and for every of the 16 possible border permutations. Storing the
+ * indices this way prevents cracks from occuring, while also avoiding
+ * unnecessary memory waste.
  *
  * As a general rule of thumb, the smaller the block size is, the more CPU
  * computations have to be performed per frame. So, for a small terrain,
  * small block sizes are appropriate, whereas for larger terrains, larger
- * block sizes should be considered.
- *
- * TODO: Support user-given maximum number of LODs
- */
+ * block sizes should be considered. */
 class GeoMipMapping : public Terrain {
-    /* Bitmasks for the 2^4 = 16 possible border configurations.
+    /* Bitmasks for the 2^4 = 16 possible border permutations.
      * The bits are organized in left, right, top and bottom.
      * Each bit is set if the corresponding side has a lower LOD.
      */
@@ -42,7 +57,7 @@ class GeoMipMapping : public Terrain {
 
     static const unsigned DEFAULT_BLOCK_SIZE = 65;
     static const unsigned DEFAULT_MIN_LOD = 0;
-    static const unsigned DEFAULT_MAX_LOD = 10;
+    static const unsigned DEFAULT_MAX_LOD = 100; /* Can be anything, since it is min()-ed anyway */
 
 public:
     GeoMipMapping(Heightmap heightmap, float xzScale = 1.0f, float yScale = 1.0f, unsigned blockSize = DEFAULT_BLOCK_SIZE, unsigned minLod = DEFAULT_MIN_LOD, unsigned maxLod = DEFAULT_MAX_LOD);
@@ -56,13 +71,16 @@ public:
     /* Getters */
     unsigned nBlocksX();
     unsigned nBlocksZ();
+    bool freezeCamera();
+    bool lodActive();
+    bool frustumCullingActive();
 
     /* Setters */
     void baseDistance(float baseDistance);
     void doubleDistanceEachLevel(bool doubleDistanceEachLevel);
-
-    bool _frustumCullingActive = true, _lodActive = true;
-    bool _freezeCamera = false;
+    void freezeCamera(bool freezeCamera);
+    void lodActive(bool lodActive);
+    void frustumCullingActive(bool frustumCullingActive);
 
 private:
     GeoMipMappingBlock& getBlock(unsigned x, unsigned z);
@@ -70,32 +88,33 @@ private:
     unsigned determineLodDistance(float distance, float baseDist, bool doubleEachLevel = true);
     unsigned determineLodPaper(float distance);
 
+    void loadBlocks();
     void loadIndices();
     void loadVertices();
 
     /* Note that the below could probably be refactored into fewer methods,
      * which I didn't manage to do yet due to time constraints. */
     void loadGeoMipMaps();
-    unsigned loadBorderAreaForConfiguration(unsigned lod, unsigned configuration);
+    unsigned loadBorderAreaForPermutation(unsigned lod, unsigned permutation);
     unsigned loadBorderAreaForLod(unsigned lod, unsigned accumulatedCount);
     unsigned loadCenterAreaForLod(unsigned lod);
 
-    unsigned loadTopLeftCorner(unsigned step, unsigned configuration);
-    unsigned loadTopRightCorner(unsigned step, unsigned configuration);
-    unsigned loadBottomRightCorner(unsigned step, unsigned configuration);
-    unsigned loadBottomLeftCorner(unsigned step, unsigned configuration);
+    unsigned loadTopLeftCorner(unsigned step, unsigned permutation);
+    unsigned loadTopRightCorner(unsigned step, unsigned permutation);
+    unsigned loadBottomRightCorner(unsigned step, unsigned permutation);
+    unsigned loadBottomLeftCorner(unsigned step, unsigned permutation);
 
-    unsigned loadTopBorder(unsigned configuration, unsigned step);
-    unsigned loadRightBorder(unsigned configuration, unsigned step);
-    unsigned loadBottomBorder(unsigned configuration, unsigned step);
-    unsigned loadLeftBorder(unsigned configuration, unsigned step);
+    unsigned loadTopBorder(unsigned permutation, unsigned step);
+    unsigned loadRightBorder(unsigned permutation, unsigned step);
+    unsigned loadBottomBorder(unsigned permutation, unsigned step);
+    unsigned loadLeftBorder(unsigned permutation, unsigned step);
 
     /* LOD 0 and LOD 1 blocks are special since they do not have a center area,
      * but only a border area, which must be loaded specially. */
     unsigned loadLod0Block();
-    unsigned loadLod1Block(unsigned configuration);
+    unsigned loadLod1Block(unsigned permutation);
 
-    GeoMipMappingQuadTree* root;
+    void pushIndex(unsigned x, unsigned y);
 
     std::vector<float> _vertices;
     std::vector<unsigned> indices;
@@ -107,25 +126,22 @@ private:
     std::vector<unsigned> centerSizes;
     std::vector<unsigned> centerStarts;
 
-    void pushIndex(unsigned x, unsigned y);
-
-    Camera _lastCamera;
-
-    unsigned _vao, _vbo, _ebo;
-
-    unsigned _maxPossibleLod; /* Maximum possible number of LODs, calculated from block size */
-    unsigned _minLod, _maxLod; /* Min. anx max. LOD level, defined by user */
-    bool _doubleDistanceEachLevel;
-
-//    bool _frustumCullingActive = true, _lodActive = true;
-//    bool _freezeFrustumCulling = false, _freezeLod = false;
-
-    unsigned _blockSize;
-
     float _baseDistance;
+    bool _doubleDistanceEachLevel;
 
     /* The number of blocks on the x and z axis */
     unsigned _nBlocksX, _nBlocksZ;
+
+    unsigned _vao, _vbo, _ebo;
+
+    unsigned _blockSize;
+
+    unsigned _maxPossibleLod; /* Maximum possible number of LODs, calculated from block size */
+    unsigned _minLod, _maxLod; /* Min. anx max. LOD level, defined by user */
+
+    bool _frustumCullingActive = true, _lodActive = true;
+    bool _freezeCamera = false;
+    Camera _lastCamera; /* Used for freezing the camera */
 };
 
 #endif // GEOMIPMAPPING_H

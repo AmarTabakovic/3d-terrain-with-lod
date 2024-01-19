@@ -3,14 +3,10 @@
 #include "stb_image.h"
 
 Skybox::Skybox()
-    : _shader("../3d-terrain-with-lod/src/glsl/skybox.vert", "../3d-terrain-with-lod/src/glsl/skybox.frag")
+    : _shader("../src/glsl/skybox.vert", "../src/glsl/skybox.frag")
 {
 }
 
-/**
- * @brief Skybox::loadTexture
- * @param path
- */
 void Skybox::loadTexture(const std::string& path)
 {
     std::vector<std::string> faces
@@ -55,17 +51,10 @@ void Skybox::loadTexture(const std::string& path)
 
 }
 
-/**
- * @brief Skybox::shader
- * @return
- */
 Shader Skybox::shader() {
     return _shader;
 }
 
-/**
- * @brief Skybox::loadBuffers
- */
 void Skybox::loadBuffers()
 {
     /* Vertices are constant and small enough, so we can simply hardcode
@@ -124,9 +113,6 @@ void Skybox::loadBuffers()
     AtlodUtil::checkGlError("Skybox vertex loading failed");
 }
 
-/**
- * @brief Skybox::render
- */
 void Skybox::render()
 {
     glDepthFunc(GL_LEQUAL);
@@ -138,9 +124,6 @@ void Skybox::render()
     AtlodUtil::checkGlError("Skybox rendering failed");
 }
 
-/**
- * @brief Skybox::unloadBuffers
- */
 void Skybox::unloadBuffers()
 {
     glDeleteVertexArrays(1, &_vao);

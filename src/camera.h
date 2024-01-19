@@ -66,21 +66,10 @@ struct Frustum {
     Plane nearFace;
 };
 
-/**
- * @brief Encapsulates a moving camera with various direction and position vectors.
- *
- * The basic structure of this class is based on the Camera class from
- * learnopengl.com.
- */
+/* This class is based on the Camera class from learnopengl.com. */
 class Camera {
 public:
     Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float zNear = 0.0f, float zFar = 0.0f, float aspectRatio = 1.0f, float yaw = YAW, float pitch = PITCH);
-    // Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float zNear, float zFar, float aspectRatio, float yaw, float pitch);
-
-    void processKeyboard(CameraAction direction, float deltaTime);
-    void updateFrustum();
-    bool insideFrustum(glm::vec3 firstPoint, glm::vec3 secondPoint);
-    bool checkPlane(Plane& plane);
 
     /* Getters */
     glm::mat4 getViewMatrix();
@@ -95,14 +84,17 @@ public:
     void aspectRatio(float aspectRatio);
     void yaw(float yaw);
     void pitch(float pitch);
+    void zoom(float zoom);
 
-    void intersects();
-    bool checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2);
+    /* Frustum culling */
     bool insideViewFrustum(glm::vec3 p1, glm::vec3 p2);
 
     /* Automatic flying and 360-look-around methods */
     void lerpFly(float lerpFactor);
     void lerpLook(float lerpFactor);
+
+    void processKeyboard(CameraAction direction, float deltaTime);
+    void updateFrustum();
 
     bool isFlying = false;
     bool isLookingAround360 = false;
@@ -115,8 +107,9 @@ public:
     void updateCameraVectors();
 
 private:
-    Frustum _viewFrustum;
+    bool checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2);
 
+    Frustum _viewFrustum;
     glm::vec3 _position;
     glm::vec3 _front;
     glm::vec3 _up;

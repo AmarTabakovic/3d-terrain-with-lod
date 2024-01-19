@@ -5,9 +5,8 @@
 #include "../stb_image.h"
 
 NaiveRenderer::NaiveRenderer(Heightmap heightmap, float xzScale, float yScale)
-//: _shader("../3d-terrain-with-lod/src/glsl/naiverenderer.vert", "../3d-terrain-with-lod/src/glsl/naiverenderer.frag")
 {
-    _shader = Shader("../3d-terrain-with-lod/src/glsl/naiverenderer.vert", "../3d-terrain-with-lod/src/glsl/naiverenderer.frag");
+    _shader = Shader("../src/glsl/naiverenderer.vert", "../src/glsl/naiverenderer.frag");
     _heightmap = heightmap;
     _xzScale = xzScale;
     _yScale = yScale;
@@ -16,17 +15,11 @@ NaiveRenderer::NaiveRenderer(Heightmap heightmap, float xzScale, float yScale)
     _hasTexture = false;
 }
 
-/**
- * @brief NaiveRenderer::~NaiveRenderer
- */
 NaiveRenderer::~NaiveRenderer()
 {
     std::cout << "Naive terrain destroyed" << std::endl;
 }
 
-/**
- * @brief NaiveRenderer::render
- */
 void NaiveRenderer::render(Camera camera)
 {
     glEnable(GL_PRIMITIVE_RESTART);
@@ -41,23 +34,10 @@ void NaiveRenderer::render(Camera camera)
     }
 
     glBindVertexArray(_vao);
-
     glDrawElements(GL_TRIANGLE_STRIP, _nIndices * sizeof(unsigned int), GL_UNSIGNED_INT, (void*)0);
-
-    GLenum error = glGetError();
-    if (error != 0) {
-        std::cout << "Error " << std::endl;
-        std::exit(-1);
-    }
-
     AtlodUtil::checkGlError("Naive algorithm render failed");
 }
 
-/**
- * @brief Initializes and loads the buffers for rendering
- *
- * This method should be called once before entering the main rendering loop.
- */
 void NaiveRenderer::loadBuffers()
 {
     loadNormals();
@@ -167,12 +147,8 @@ void NaiveRenderer::calculateNormal(unsigned j, unsigned int i, bool isBottomRig
     _normals[(i + offset) * _width + j] += normal;
 }
 
-/**
- * @brief NaiveRenderer::loadNormals
- *
- * This normal calculating method is based on SLProject's calcNormals() method.
- * SLProject is developed at the Bern University of Applied Sciences.
- */
+/* This normal calculating method is based on SLProject's calcNormals() method.
+ * SLProject is developed at the Bern University of Applied Sciences. */
 void NaiveRenderer::loadNormals()
 {
     _normals.resize(_height * _width);
@@ -197,9 +173,6 @@ void NaiveRenderer::loadNormals()
     }
 }
 
-/**
- * @brief NaiveRenderer::unloadBuffers
- */
 void NaiveRenderer::unloadBuffers()
 {
     std::cout << "Unloading buffers" << std::endl;

@@ -1,13 +1,6 @@
 #include "camera.h"
 #include <iostream>
 
-/**
- * @brief Camera::Camera
- * @param position
- * @param up
- * @param yaw
- * @param pitch
- */
 Camera::Camera(glm::vec3 position, glm::vec3 up, float zNear, float zFar, float aspectRatio, float yaw, float pitch)
     : _front(glm::vec3(0.0f, 0.0f, -1.0f))
     , _movementSpeed(SPEED)
@@ -25,9 +18,6 @@ Camera::Camera(glm::vec3 position, glm::vec3 up, float zNear, float zFar, float 
     updateFrustum();
 }
 
-/**
- * @brief Camera::flyFromOrigToDest
- */
 void Camera::lerpFly(float lerpFactor)
 {
     _position = origin + direction * lerpFactor;
@@ -64,7 +54,6 @@ bool Camera::insideViewFrustum(glm::vec3 p1, glm::vec3 p2)
 
 bool Camera::checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2)
 {
-    /* TODO: I would be very surprised if this works */
     float minY = p1.y;
     float maxY = p2.y;
     float width = p2.x - p1.x;
@@ -79,28 +68,21 @@ bool Camera::checkPlane(Plane& plane, glm::vec3 p1, glm::vec3 p2)
     return -r <= plane.getSignedDistanceToPlane(aabbCenter);
 }
 
-/**
- * @brief Camera::getViewMatrix
- * @return
- */
 glm::mat4 Camera::getViewMatrix()
 {
     return glm::lookAt(_position, _position + _front, _up);
 }
 
-/**
- * @brief Camera::getZoom
- * @return
- */
 float Camera::zoom()
 {
     return _zoom;
 }
 
-/**
- * @brief Camera::getPosition
- * @return
- */
+void Camera::zoom(float zoom)
+{
+    _zoom = zoom;
+}
+
 glm::vec3 Camera::position()
 {
     return _position;
@@ -126,11 +108,6 @@ float Camera::yaw()
     return _yaw;
 }
 
-/**
- * @brief Camera::processKeyboard
- * @param direction
- * @param deltaTime
- */
 void Camera::processKeyboard(CameraAction direction, float deltaTime)
 {
     float velocity = _movementSpeed * deltaTime;
@@ -187,9 +164,6 @@ void Camera::updateFrustum()
         glm::cross(frontMultFar + _up * halfVSide, _right) };
 }
 
-/**
- * @brief Camera::updateCameraVectors
- */
 void Camera::updateCameraVectors()
 {
     glm::vec3 front1;

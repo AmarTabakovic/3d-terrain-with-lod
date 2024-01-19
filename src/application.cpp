@@ -21,120 +21,85 @@
 
 namespace Application {
 
-/* TODO: TEMP */
-const char* algos[] = { "NAIVE", "GEOMIPMAPPING" };
-int selectedItemIndex = 1;
-
+/* Window variables */
 const unsigned SCR_WIDTH = 1280;
 const unsigned SCR_HEIGHT = 720;
 
 unsigned windowWidth = SCR_WIDTH;
 unsigned windowHeight = SCR_HEIGHT;
 
+GLFWwindow* window;
+
+/* FPS */
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-GLFWwindow* window;
+double fpsSum = 0.0f;
+unsigned fpsCount = 0;
 
-bool renderWireframe = false;
-
-ColorMode mode = DARK;
-bool isDark = true;
-
-ActiveTerrain activeTerrain;
-
+/* Main settings */
 bool showOptions = true;
 bool showMainOptions = true;
-bool showGeoMipMappingOptions = true;
-
+bool renderWireframe = false;
+bool isDark = true;
 bool renderSkybox = true;
+bool doFog = true;
+float fogDensity = 0.0003f;
+float yScale = 1.0f / 30.0f;
+float camYaw = 0.0f, camPitch = 0.0f, camRoll = 0.0f;
+float camZoom;
 
-bool showAutomaticMovementOptions = true;
-
-Terrain* naiveRenderer;
-Terrain* geoMipMapping;
-
-Terrain* current;
-
-Skybox* skybox;
+/* Algorithms as strings for ImGui dropdown (I know this is somewhat hacky) */
+const char* algos[] = { "NAIVE", "GEOMIPMAPPING" };
+int selectedItemIndex = 1;
 
 Camera camera = Camera(glm::vec3(0.0f, 1.0f, 0.0f),
     glm::vec3(0.0f, 1.0f, 0.0f),
     0.0f, 100000.0f, (float)windowWidth / (float)windowHeight,
     0.0f, -40.4f);
 
-glm::vec3 skyColor = glm::vec3(162, 193, 215) * (1.0f / 255.0f);
-glm::vec3 terrainColor = glm::vec3(120.0f, 117.0f, 115.0f) * (1.0f / 255.0f);
-
-// glm::vec3 lightPos(10000.0f, 5000.0f, 10000.0f);
-glm::vec3 lightDirection = camera.front();
-
-bool doFog = true;
-
-float fogDensity = 0.0003f;
-float yScale = 1.0f / 30.0f;
-
-float geoMipMappingBaseDist = 700.0f;
+/* GeoMipMapping settings */
+bool showGeoMipMappingOptions = true;
 bool geoMipMappingDoubleDistEachLevel = false;
-unsigned geoMipMappingBlockSize = 257;
-unsigned geoMipMappingMaxPossibleLods = std::log2(geoMipMappingBlockSize - 1);
-unsigned geoMipMappingMinLod = 0;
-unsigned geoMipMappingMaxLod = 20;
-
 bool freezeCamera = false;
-
 bool frustumCullingActive = true;
 bool lodActive = true;
+float geoMipMappingBaseDist = 700.0f;
+unsigned geoMipMappingBlockSize = 257; /* Default block size, can be overwritten */
+unsigned geoMipMappingMaxPossibleLods;
+unsigned geoMipMappingMinLod = 0; /* Default, can be overwritten */
+unsigned geoMipMappingMaxLod = 20; /* Default, can be overwritten */
 
-struct GeoMipMappingOptions {
-    unsigned blockSize;
-    unsigned nBlocksX; /* Immutable by user */
-    unsigned nBlocksY; /* Immutable by user */
-    unsigned maxPossibleLod; /* Immutable by user */
-    unsigned minLod;
-    unsigned maxLod;
-    float baseDist;
-    bool doubleEachLevel;
-    bool freezeCamera;
-    bool frustumCullingActive;
-    bool lodActive;
-};
-
-struct MainOptions {
-    unsigned sizeX;
-    unsigned sizeZ;
-    float yScale;
-    float camYaw;
-    float camPitch;
-    glm::vec3 lightingDir;
-    bool wireframeActive;
-};
-
-struct AutomaticMovementOptions {
-    float flightVel;
-    float lookAroundVel;
-    glm::vec3 camOrigin;
-    glm::vec3 camDest;
-};
-
-float flightVel = 30;
+/* Automatic camera movement settings */
+bool showAutomaticMovementOptions = true;
+float flightVel = 30; /* Default value */
+float lookAroundVel = 7; /* Default value */
 glm::vec3 camOrigin(0, 0, 0);
 glm::vec3 camDest(0, 0, 0);
-float lookAroundVel = 7;
 
-float camYaw = 0.0f, camPitch = 0.0f, camRoll = 0.0f;
+/* Terrain instances */
+Terrain* naiveRenderer;
+Terrain* geoMipMapping;
+Terrain* current;
+ActiveTerrain activeTerrain;
 
+/* Skybox and colors */
+Skybox* skybox;
+
+glm::vec3 skyColor = glm::vec3(162.0f, 193.0f, 215.0f) * (1.0f / 255.0f);
+glm::vec3 terrainColor = glm::vec3(120.0f, 117.0f, 115.0f) * (1.0f / 255.0f);
+
+glm::vec3 lightDirection = camera.front();
+
+/* Command line argument values */
 std::string dataFolderPath;
 std::string heightmapFileName;
 std::string overlayFileName;
-std::string skyboxFolderName = "simple-gradient"; /* Default skybox */
-bool loadGeoMipMapping = true; /* Load GeoMipMapping by default */
-bool loadNaiveRendering = false; /* Do not load naive rendering by dfault*/
+std::string skyboxFolderName = "simple-gradient"; /* Default skybox, can be overwritten */
 
-/**
- * @brief Application::setup
- * @return 0 on success, 1 otherwise
- */
+bool loadGeoMipMapping = true; /* Load GeoMipMapping by default */
+bool loadNaiveRendering = false; /* Do not load naive rendering by default */
+
 int setup()
 {
     glfwInit();
@@ -176,20 +141,18 @@ void startAutomaticFlying()
     camera.destination = camDest;
     camera.direction = camDest - camOrigin;
     camera.isFlying = true;
+
+    resetAverageFpsCounter();
 }
 
 void startAutomaticLookaround()
 {
     camera.initialYaw = camera.yaw();
     camera.isLookingAround360 = true;
+
+    resetAverageFpsCounter();
 }
 
-/**
- * @brief parseArguments
- * @param argc
- * @param argv
- * @return
- */
 int parseArguments(int argc, char** argv)
 {
     for (int i = 1; i < argc; i++) {
@@ -204,6 +167,7 @@ int parseArguments(int argc, char** argv)
             if (property == "--block_size") {
                 try {
                     geoMipMappingBlockSize = std::stoi(value);
+                    geoMipMappingMaxPossibleLods = std::log2(geoMipMappingBlockSize - 1);
                 } catch (std::invalid_argument const& ex) {
                     std::cout << "Block size must be an integer" << std::endl;
                 }
@@ -224,6 +188,20 @@ int parseArguments(int argc, char** argv)
 
             } else if (property == "--geomipmapping") { /* Any input != 0 is true */
                 loadGeoMipMapping = value != "0";
+            } else if (property == "--min_lod") {
+                try {
+                    geoMipMappingMinLod = std::stoi(value);
+                } catch (std::invalid_argument const& ex) {
+                    std::cout << "Min. LOD must be an integer" << std::endl;
+                }
+
+            } else if (property == "--max_lod") {
+                try {
+                    geoMipMappingMaxLod = std::stoi(value);
+                } catch (std::invalid_argument const& ex) {
+                    std::cout << "Max. LOD must be an integer" << std::endl;
+                }
+
             } else {
                 std::cerr << "Unknown option: " << property << std::endl;
                 return 1;
@@ -254,21 +232,6 @@ int parseArguments(int argc, char** argv)
     return 0;
 }
 
-/**
- * @brief renderMainOptions
- *
- * The main options are:
- * - The active algorithm
- * - Fog
- * - Shading
- * - Wireframe
- * - Dark/Light theme
- * - Freeze camera
- *
- * Further, the following information is displayed:
- * - Frame rate
- * - Triangle count (maybe)
- */
 void renderMainOptions()
 {
     float displayFps;
@@ -281,6 +244,9 @@ void renderMainOptions()
     ImGui::Text("Terrain size: %d x %d", current->width(), current->height());
     ImGui::Text("FPS: %d", (unsigned)displayFps);
     ImGui::SeparatorText("Terrain options");
+
+    /* Note: changing the y-scale currently does not update the AABBs
+     * of the GeoMipMappingBlocks, so bear this in mind when using this slider */
     ImGui::InputFloat("Y-Scale", &yScale, 0.1f, 2.0f, "%.2f");
 
     if (ImGui::BeginCombo("Current algorithm", algos[selectedItemIndex])) {
@@ -299,8 +265,9 @@ void renderMainOptions()
     }
 
     ImGui::SeparatorText("Camera options");
-    ImGui::InputFloat("Camera yaw", &camYaw, 0.01f, 0.1, "%.2f");
-    ImGui::InputFloat("Camera pitch", &camPitch, 0.01f, 0.1, "%.2f");
+    ImGui::InputFloat("Camera yaw", &camYaw, 0.1f, 1.0f, "%.2f");
+    ImGui::InputFloat("Camera pitch", &camPitch, 0.1f, 1.0f, "%.2f");
+    ImGui::SliderFloat("Camera zoom", &camZoom, 1.0f, 90.0f, "%.2f");
 
     ImGui::SeparatorText("Shading options");
 
@@ -342,17 +309,6 @@ void renderAutomaticMovementOptions()
     ImGui::End();
 }
 
-/**
- * @brief renderGeoMipMappingOptions
- *
- * Configurable options are:
- * - LOD selection mode (distance metric or screen-space metric)
- * - If wireframe on:
- *      - Color mode
- * - If distance metric selected:
- *      - Base distance
- *      - Distance growth mode (linear or squared each level)
- */
 void renderGeoMipMappingOptions()
 {
     GeoMipMapping* casted = (GeoMipMapping*)current;
@@ -373,10 +329,12 @@ void renderGeoMipMappingOptions()
     ImGui::End();
 }
 
-/**
- * @brief Application::run
- * @return
- */
+void resetAverageFpsCounter()
+{
+    fpsSum = 0.0f;
+    fpsCount = 0;
+}
+
 int run()
 {
     GLenum err = glewInit();
@@ -402,8 +360,8 @@ int run()
     heightmap.load(dataFolderPath + "/heightmaps/" + heightmapFileName, true);
 
     /* Set camera origin and destination to bottom left corner and top right corner respectively */
-    camOrigin = glm::vec3(-(int)heightmap.width() / 2, 200, -(int)heightmap.height() / 2);
-    camDest = glm::vec3(heightmap.width() / 2, 200, heightmap.height() / 2);
+    camOrigin = glm::vec3(-(int)heightmap.width() / 2.0f, 200.0f, -(int)heightmap.height() / 2.0f);
+    camDest = glm::vec3(heightmap.width() / 2.0f, 200.0f, heightmap.height() / 2.0f);
 
     /* Load naive rendering (if set in command line arguments) */
     if (loadNaiveRendering) {
@@ -449,6 +407,10 @@ int run()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
+        /* Add FPS to sum for average FPS calculation */
+        fpsSum += (1.0f / deltaTime);
+        fpsCount++;
+
         /* Update window title with framerate */
         std::string newTitle = "ATLOD: " + std::to_string(1.0f / deltaTime) + " FPS";
         glfwSetWindowTitle(window, newTitle.c_str());
@@ -466,6 +428,7 @@ int run()
         /* Get global camera yaw and pitch (for ImGui camera options) */
         camYaw = camera.yaw();
         camPitch = camera.pitch();
+        camZoom = camera.zoom();
 
         if (showOptions) {
             renderMainOptions();
@@ -478,6 +441,7 @@ int run()
         /* Overwrite camera yaw and pitch with values from ImGui options */
         camera.yaw(camYaw);
         camera.pitch(camPitch);
+        camera.zoom(camZoom);
         camera.updateCameraVectors();
 
         /* Update camera values if flying */
@@ -485,9 +449,14 @@ int run()
             camera.lerpFly(posLerp);
             posLerp += 0.0005 + flightVel / 50000;
 
+            /* Finished flying */
             if (posLerp >= 1.0f) {
                 camera.isFlying = false;
                 posLerp = 0.0f;
+
+                std::cout << "Average FPS of flight: " << fpsSum / fpsCount << std::endl;
+
+                resetAverageFpsCounter();
             }
         }
 
@@ -495,9 +464,14 @@ int run()
         if (camera.isLookingAround360) {
             camera.lerpLook(lookLerp);
             lookLerp += lookAroundVel / 10000;
+
+            /**/
             if (lookLerp >= 1.0f) {
                 camera.isLookingAround360 = false;
                 lookLerp = 0.0f;
+                std::cout << "Average FPS of rotation: " << fpsSum / fpsCount << std::endl;
+
+                resetAverageFpsCounter();
             }
         }
 
@@ -526,11 +500,9 @@ int run()
 
         glm::mat4 projection = glm::perspective(glm::radians(camera.zoom()), (float)windowWidth / (float)windowHeight, 0.1f, 100000.0f);
         glm::mat4 view = camera.getViewMatrix();
-        glm::vec2 settings = glm::vec2((float)mode, (float)renderWireframe);
+        glm::vec2 settings = glm::vec2((float)isDark, (float)renderWireframe);
         current->shader().use();
 
-        /* TODO: Set these uniform variables in the render() method of the
-         * Terrain classes */
         current->shader().setVec2("rendersettings", settings);
         current->shader().setMat4("projection", projection);
         current->shader().setMat4("view", view);
@@ -546,10 +518,9 @@ int run()
             GeoMipMapping* casted = (GeoMipMapping*)current;
             casted->baseDistance(geoMipMappingBaseDist);
             casted->doubleDistanceEachLevel(geoMipMappingDoubleDistEachLevel);
-            casted->shader().setFloat("yScale", (float)yScale);
-            casted->_freezeCamera = freezeCamera;
-            casted->_lodActive = lodActive;
-            casted->_frustumCullingActive = frustumCullingActive;
+            casted->freezeCamera(freezeCamera);
+            casted->lodActive(lodActive);
+            casted->frustumCullingActive(frustumCullingActive);
             casted->yScale(yScale);
         }
 
@@ -589,13 +560,9 @@ int run()
     }
 
     shutDown();
-
     return 0;
 }
 
-/**
- * @brief shutDown
- */
 void shutDown()
 {
     /* Unload vertex and index buffers */
@@ -622,9 +589,6 @@ void shutDown()
     ImGui::DestroyContext();
 }
 
-/**
- * @brief Application::processInput
- */
 void processInput()
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -649,14 +613,6 @@ void processInput()
         camera.processKeyboard(CameraAction::LOOK_RIGHT, deltaTime);
 }
 
-/**
- * @brief keyboardInputCallback
- * @param window
- * @param key
- * @param scanCode
- * @param action
- * @param modifiers
- */
 void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action, int modifiers)
 {
     if (action == GLFW_PRESS) {
@@ -677,13 +633,6 @@ void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action
     }
 }
 
-/**
- * @brief Callback function for window resizes.
- *
- * @param window pointer to the window instance
- * @param width new window width
- * @param height new window height
- */
 void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);

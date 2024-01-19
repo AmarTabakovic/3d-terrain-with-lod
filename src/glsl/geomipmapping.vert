@@ -7,15 +7,9 @@ uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
 uniform vec2 offset;
-
 uniform sampler2D heightmapTexture;
-
 uniform float textureWidth;
 uniform float textureHeight;
-
-//uniform float xzScale;
-/*uniform float yScale;*/
-uniform float yShift;
 
 void main()
 {
@@ -23,7 +17,7 @@ void main()
                         (aPos.y + offset.y + 0.5 * textureHeight) / (textureHeight));
 
     float height = texture(heightmapTexture, texPos).r;
-    float y =  yShift + height * 65535;
+    float y = height * 65535;
 
     vec3 actualPos = vec3(aPos.x + offset.x, y, aPos.y + offset.y);
 

@@ -2,13 +2,6 @@
 
 #include "application.h"
 
-/**
- * @brief main
- *
- * TODO: Arg parsing for terrain modes, heightmap file, texture file(s), etc.
- *
- * @return
- */
 int main(int argc, char** argv)
 {
     if (Application::setup() != 0)

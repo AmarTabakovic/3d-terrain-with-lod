@@ -10,26 +10,10 @@
 
 #include <string>
 
+/* For primitive restarts when creating index buffers */
 const GLuint RESTART_INDEX = std::numeric_limits<GLuint>::max();
 
-class RenderArgs {
-    /* TODO: Stuff like
-     *  - wireframeOn
-     *  - wireframeColorOn
-     *  - fogOn
-     *  - lightingOn
-     *  - darkModeOn
-     *  - frustumCullingOn (only if supported, e.g. GeoMipMapping)
-     *  - textureOn
-     */
-};
-
-/**
- * @brief Abstract class containing shared members for all derived terrain
- *        algorithm classes.
- */
 class Terrain {
-private:
 
 public:
     Terrain();
@@ -39,23 +23,21 @@ public:
     virtual void render(Camera camera) = 0;
 
     void loadTexture(const std::string& fileName);
+    void unloadTexture();
 
+    /* Getters */
     Heightmap& heightmap();
     Shader& shader();
-
     unsigned width();
     unsigned height();
     float xzScale();
     float yScale();
+    bool hasTexture();
 
+    /* Setters */
     void yScale(float yScale);
 
-    bool hasTexture();
-    bool hasNormal();
-    bool hasDetail();
-
 protected:
-    /* TODO: these two can probably be non-pointers */
     Heightmap _heightmap;
     Shader _shader;
 
@@ -65,15 +47,11 @@ protected:
     unsigned _height;
 
     unsigned _textureId; /* OpenGL ID for the texture map */
-    unsigned _normalId; /* OpenGL ID for the normal map */
-    unsigned _detailId; /* OpenGL ID for the detail map */
 
-    float _xzScale; /* TODO: Unneeded? */
+    float _xzScale;
     float _yScale;
 
     bool _hasTexture = false;
-    bool _hasNormal = false;
-    bool _hasDetail = false;
 };
 
 #endif // TERRAIN_H

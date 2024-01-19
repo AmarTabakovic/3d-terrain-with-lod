@@ -16,7 +16,6 @@ add_executable(${APP_TARGET}
     src/main.cpp
     src/terrain.cpp
     src/naiverenderer/naiverenderer.cpp
-    src/geomipmapping/geomipmappingblock.cpp
     src/geomipmapping/geomipmapping.cpp
     src/application.cpp
     src/heightmap.cpp

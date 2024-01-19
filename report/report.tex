@@ -27,9 +27,7 @@ Prof. Marcus Hudritsch}\\
 \vspace{30px}
 \today
 }
-%\author{
-%  Amar Tabakovic
-%}
+
 \date{}
 \maketitle
 
@@ -37,8 +35,12 @@ Prof. Marcus Hudritsch}\\
  Rendering terrains is a central task for video games, geographic information systems and simulation software, 
  but also computationally expensive. Optimizations, one of which is the level of detail (LOD),
  are necessary in order to ensure adequate performances.
- A demo terrain renderer (named ATLOD) was developed. The implemented algorithm 
- is based on GeoMipMapping \cite{geomipmapping} and GPU-based Geometry Clipmaps \cite{gpugeomclipmaps}.
+ Numerous algorithms were developed in the last 30 years which tackle the problem of efficient terrain rendering.
+ A demo terrain renderer is developed with the goal to demonstrate and compare some of the ideas of these algorithms.
+ The main implemented algorithm is mostly based on GeoMipMapping \cite{geomipmapping}, but also draws inspiration from GPU-based Geometry Clipmaps \cite{gpugeomclipmaps}
+ and other approaches.
+ The implementation was tested on a $14000 \times 14000$ heightmap of Switzerland and bordering regions, yielding around 
+ 60 FPS on a 2020 MacBook Air while delivering decent visualizations.
 \end{abstract}
 
 \tableofcontents
@@ -54,8 +56,9 @@ Prof. Marcus Hudritsch}\\
 \include{chapters/results}
 \include{chapters/discussion-and-conclusion}
 
-%\nocite{*}
 \bibliography{bibliography}
 \addcontentsline{toc}{chapter}{Bibliography}
+
+\include{chapters/appendix}
 
 \end{document}

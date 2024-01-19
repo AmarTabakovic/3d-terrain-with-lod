@@ -11,14 +11,15 @@ Over the last three decades, numerous algorithms and approaches have been publis
 for the problem of efficient terrain rendering.
 
 \section{Goals of this Project}
-The primary goal of this project is the survey and evaluation
+The primary goal of this project is the study and exploration
 of terrain rendering algorithms.
 First, the basics of terrain rendering are studied and 
-an overview of the state of the art of terrain rendering is 
-composed. Afterwards, a demo terrain renderer is developed,
+an overview of the state-of-the-art of terrain rendering is 
+constructed. Afterwards, a demo terrain renderer is developed,
 using the ideas from one or more of the evaluated algorithms.
 
-This project is restricted to rendering terrains from heightmaps without streaming/paging.
+This project is restricted to simple heightmap rendering, without any real-time 
+streaming/paging of terrain data.
 
 \section{Intended Readership}
 The reader is assumed to be familiar with the basics of computer graphics, C++ and OpenGL.
@@ -31,14 +32,12 @@ This report uses the following mathematical notation:
       \item $\mathbb{N}$ denotes the set of natural numbers, $\mathbb{R}$ is the set of real numbers, $\mathbb{R}^n$ is the set of real numbers in $n$ dimensions.
       \item $\mathbf{p} = (p_x, p_y, p_z)$ denotes a point in $\mathbb{R}^3$.
       \item $\mathbf{v} = (v_x, v_y, v_z)$ denotes a vector in $\mathbb{R}^3$.
+      \item $\mathbf{M}$ denotes a matrix in $\mathbb{R}^{n \times n}$.
 \end{itemize}
-If at any point the report contains mathematical notation which is
-not described here, 
-mathematical notation as commonly found in computer graphics is used.
 
 \subsection{The Term ``LOD Level''}
 The definition of what ``LOD level 0'' and what ``LOD level $l$'' ($l = $ maximum LOD) mean is different from paper to paper.
-Normally, LOD systems use 0 for the highest resolu`ion and $l$ for the lowest resolution.
+Normally, LOD systems use 0 for the highest resolution and $l$ for the lowest resolution.
 In this report, the opposite (and slightly more intuitive) approach is followed: $l$ denotes the highest resolution, and 0 denotes the lowest resolution.
 
 \section{Outline of the Report}
@@ -48,15 +47,13 @@ This report is structured as follows:
         terrain data representation, common optimizations and potential problems during rendering.
   \item Chapter 3 gives an overview of the state of the art of terrain rendering.
         Various algorithms and their central ideas are presented in a high-level manner.
-        Afterwards, some examples of real-world systems using terrain LOD algorithms are given.
+        Afterwards, some examples of real-world systems using terrain LOD algorithms are listed.
   \item Chapter 4 describes the demo terrain renderer (named ATLOD) which was developed.
-        The basic features and the implementation details of the algorithms are presented.
-  \item Chapter 5 Lists a few real-world examples where terrain LOD is being used, such as 
-        game engines or geographic information systems.
-        The algorithms are presented in a high-level manner.
-  \item Chapter 6 describes ATLOD, the demo application for terrain rendering implemented as part of this project.
-        An overview of the functionalities is given and the main approaches and design decisions are discussed.
-  \item Chapter 7 TODO
+        The basic features and the details of the implemented algorithm are presented.
+  \item In chapter 5, the performance and visual accuracy of ATLOD is measured and the results documented.
+  \item Chapter 6 gives a short discussion of the results from chapter 5.
+  \item Chapter 7 concludes this report by mentioning some potential improvements and the 
+        outlook for the bachelor thesis.
 \end{itemize}
 
 

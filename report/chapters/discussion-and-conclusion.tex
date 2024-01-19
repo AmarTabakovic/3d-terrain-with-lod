@@ -1,10 +1,41 @@
-\chapter{Discussion and Conclusion}
-\section{Further Work}
-ATLOD can be extended in a number of ways:
+\chapter{Discussion}
+Overall, the implemented algorithm works decently well, despite 
+lacking some features for it to be fully optimized.
+The configurability of the implementation allows for usage of the 
+system for different applications and purposes.
+
+In order to actually test the limits of the implemented algorithm, the performance measurements
+should be conducted again with stronger hardware.
+It is to be noted that the implementation still performs decently 
+well, given the relatively weak hardware it was tested on.
+
+A comparison with existing systems and game engines is difficult. ATLOD is 
+developed specifically for terrain rendering, whilst game engines
+contain other components and often perform various tasks in the background, 
+which hinders an accurate performance comparison.
+
+\chapter{Conclusion}
+\section{Potential Improvements}
+The GeoMipMapping implementation has some room for improvement:
 \begin{itemize}
-  \item Additional terrain LOD algorithms: ATLOD currently only supports GeoMipMapping. Some interesting and relevant algorithms that could be added 
-        are GPU-based Geometry Clipmaps, CDLOD and Concurrent Binary Trees.
-  \item Terrain streaming/paging: currently, ATLOD only loads a single instance of \texttt{GeoMipMapping}. ATLOD could be extended to load multple 
-        instances with dynamic loading and offloading of instances and heightmaps, which would allow for even larger (theoretically infinite) terrains.
+      \item The view-frustum culling can be implemented more efficiently with a quadtree. The main problem with quadtree-based view-frustum culling 
+            is that in order to support non-square terrains, special care needs to be taken for the quadtree size.
+            A simple solution would be to define the quadtree to have a side length of the next power of two 
+            larger than $\max \{terrainWidth, terrainHeight\}$ and to mark nodes as \texttt{null} in quadrants where there is no terrain.
+      \item The performance can be further increased with \textit{instanced rendering}. This would reduce the number of draw calls dramatically.
+      \item The idea that a $(0,0,1,0)$ border permutation is simply a $(1,0,0,0)$ border permutation with a rotation of $-\pi/2$ can be applied
+     to further reduce GPU memory usage. This could be achieved by allocating only the indices for the border permutations $(0,0,0,0),(1,0,0,0),(1,1,0,0),(1,1,1,0)$ and $(1,1,1,1)$
+            and then by simply rotating the flat mesh in the vertex shader, in addition to translating it.
+      \item Another potential improvement is to extend the implemented algorithm with vertex morphing in order to reduce the popping artifacts.
 \end{itemize}
-\section{Reflexion}
+
+\section{Outlook for the Bachelor Thesis}
+There are several possible project ideas for the bachelor thesis which build upon this project and the topics behind it:
+\begin{itemize}
+      \item Integration of a terrain LOD system in a game engine (e.g. Godot) or in a scene-graph library (e.g. SLProject).
+      \item Development of a flight simulator, where the user can control the aircraft/camera using gestures.
+      \item Implementation of a streaming/paging-based terrain LOD algorithm, where multiple terrain instances are dynamically loaded and offloaded depending on the position.
+            This would allow for (theoretically) infinite terrains. 
+      \item Implementation and benchmarking of additional terrain LOD algorithms. Some interesting and relevant algorithms that could be added 
+      are GPU-based Geometry Clipmaps, CDLOD and Concurrent Binary Trees.
+\end{itemize}

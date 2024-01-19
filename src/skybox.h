@@ -6,9 +6,7 @@
 #include <string>
 #include <vector>
 
-/**
- * @brief The Skybox class
- */
+/* Mainly based on learnopengl.com. */
 class Skybox {
 public:
     Skybox();
