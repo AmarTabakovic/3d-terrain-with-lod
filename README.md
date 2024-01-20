@@ -92,13 +92,13 @@ The following arguments can be passed optionally:
 - Overlay texture file name: `--overlay_file_name=<string>` (default none)
 - Skybox folder name: `--skybox_folder_name=<string>` (default "simple-gradient")
 - Load GeoMipMapping: `--geomipmapping=<0 or 1>` (default 1)
-- Load naive rendering_ `--naive_rendering=<0 or 1>` (default 0)
+- Load naive rendering: `--naive_rendering=<0 or 1>` (default 0)
 
 **Important**: the passed paths cannot contain any spaces and the arguments cannot contain spaces between the `=` symbol.
 
 Example usage (Linux and Mac OS):
 ```plaintext
-./atlod --data_folder_path=../3d-terrain-with-lod/data --heightmap_file_name=14k-x-14k-switzerland.png --geomipmapping=1 --naive_rendering=1
+./atlod --data_folder_path=../data --heightmap_file_name=6k-x-6k-heightmap.png --geomipmapping=1 --naive_rendering=0
 ```
 
 #### Keyboard 
