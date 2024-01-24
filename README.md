@@ -3,13 +3,25 @@ A small terrain renderer with level of detail (LOD), developed as part of the mo
 
 ![ATLOD](doc/atlod-preview.png)
 
+## Introduction
+Rendering terrains is an important task in various practical applications of 
+computer graphics, such as video games, GIS and simulation systems. 
+Due to the sheer size and constant visibility of terrains, optimizations are necessary 
+for rendering them efficiently, one of which is the *LOD (level of detail)*.
+In this project, I mainly researched and compared existing terrain LOD
+algorithms and approaches and evaluated them based on their suitability for implementation.
+Based on my findings, I developed a small demo terrain renderer (named ATLOD),
+which is mainly based on a mix between GeoMipMapping (W. H. de Boer, 2000) and 
+GPU-based Geometry Clipmaps (H. Hoppe and A. Asirvatham, 2005), but also 
+incorporates elements form other approaches.
+
 ## Repository Structure
 This repository is structured as follows:
 
-- [`src`](src): contains the source code of the terrain LOD demo application written in C++ and OpenGL
+- [`src`](src): contains the source code of ATLOD, the terrain LOD demo application written in C++ and OpenGL
 - [`lib`](lib): contains libraries in form of Git submodules
-- [`data`](data): contains data relevant for ATLOD, such as heightmaps and textures
-- [`report`](report): contains the LaTeX source code and the generated PDF of the project report
+- [`data`](data): contains data relevant for ATLOD, such as heightmaps, overlay textures and skyboxes (explained in greater detail below)
+- [`report`](report): contains the $\text{\LaTeX}$ source code of the project report
 - [`research`](research): contains relevant research publications on terrain LOD (mainly for learning about the various approaches)
 - [`scripts`](scripts): contains helper scripts
 
