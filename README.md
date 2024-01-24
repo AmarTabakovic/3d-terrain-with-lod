@@ -21,7 +21,7 @@ This repository is structured as follows:
 - [`src`](src): contains the source code of ATLOD, the terrain LOD demo application written in C++ and OpenGL
 - [`lib`](lib): contains libraries in form of Git submodules
 - [`data`](data): contains data relevant for ATLOD, such as heightmaps, overlay textures and skyboxes (explained in greater detail below)
-- [`report`](report): contains the $\text{\LaTeX}$ source code of the project report
+- [`report`](report): contains the LaTeX source code of the project report
 - [`research`](research): contains relevant research publications on terrain LOD (mainly for learning about the various approaches)
 - [`scripts`](scripts): contains helper scripts
 
