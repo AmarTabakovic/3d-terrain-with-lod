@@ -11,6 +11,7 @@ This repository is structured as follows:
 - [`data`](data): contains data relevant for ATLOD, such as heightmaps and textures
 - [`report`](report): contains the LaTeX source code and the generated PDF of the project report
 - [`research`](research): contains relevant research publications on terrain LOD (mainly for learning about the various approaches)
+- [`scripts`](scripts): contains helper scripts
 
 ## Used APIs, Tools and Libraries
 - C++ 17
@@ -76,7 +77,7 @@ All heightmap image files must be located in `heightmaps`, all overlay texture f
 and all skybox folders must be located in `skybox`. 
 The folder containing a specific skybox 
 must contain six images stored as `front.png`, `back.png`, `left.png`, `right.png`, `top.png`, `bottom.png`.
-Otherwise, see the default images.
+See the default skybox folder as an example.
 
 ATLOD requires some command line arguments, which can either be passed directly 
 in the command line, or set in the IDE.
@@ -86,7 +87,7 @@ The following arguments are mandatory:
 - Heightmap filename (only the filename, not the full path): `--heightmap_file_name=<string>`
 
 The following arguments can be passed optionally:
-- Block size (for GeoMipMapping, must be of the form 2^n + 1): `--block_size=<int>` (default 257)
+- Block size (for GeoMipMapping, must be of the form $2^n + 1$ for some $n$): `--block_size=<int>` (default 257)
 - Minimum LOD (for GeoMipMapping, is always bounds-checked with min()): `--min_lod=<int>`
 - Maximum LOD (for GeoMipMapping, is always bounds-checked with max()): `--max_lod=<int>`
 - Overlay texture file name: `--overlay_file_name=<string>` (default none)
