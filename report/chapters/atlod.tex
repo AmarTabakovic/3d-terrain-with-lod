@@ -377,7 +377,7 @@ The reason for splitting the mesh up this way will be made clear shortly.
 The first part of the index buffer stores the indices of the border area
 for every LOD level and border permutation, and
 the second part of the index buffer stores the center area for every LOD level. 
-What a \textit{border permutation} is will be explain in the next section.
+What a \textit{border permutation} is will be explained in the next section.
 Figure \ref{fig:atlod-geomipmapping-index-buffers} shows the described index buffer 
 organisation.
 
@@ -486,7 +486,7 @@ and loads the vertices of the flat mesh of size $blockSize \times blockSize$
 centered around $(0,0,0)$ into a vertex buffer with its ID stored in the field \texttt{\_vbo}.
 \begin{lstlisting}[
   language=C++,
-  label={lst:loadverts}
+  label={lst:loadverts},
   caption={Method \texttt{GeoMipMapping::loadVertices()} that generates the vertex array object and loads the
   vertex buffer with the flat mesh of size $blockSize \times blockSize$ centered around $(0,0,0)$.}]
 void GeoMipMapping::loadVertices()
@@ -551,7 +551,7 @@ The other methods work similarly.
 
 \begin{lstlisting}[
   language=C++,
-  label={lst:loadtopleftcorner}
+  label={lst:loadtopleftcorner},
   caption={Method \texttt{GeoMipMapping::loadTopLeftCorner()} which loads in the indices of the top left corner of the flat mesh for a given LOD level and border permutation}]
 unsigned GeoMipMapping::loadTopLeftCorner(unsigned step, unsigned permutation)
 {
