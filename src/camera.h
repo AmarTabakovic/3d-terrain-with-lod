@@ -20,6 +20,8 @@ enum class CameraAction {
     MOVE_BACKWARD,
     MOVE_LEFT,
     MOVE_RIGHT,
+    MOVE_UP,
+    MOVE_DOWN,
     LOOK_UP,
     LOOK_DOWN,
     LOOK_LEFT,

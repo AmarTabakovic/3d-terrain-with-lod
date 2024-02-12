@@ -115,7 +115,9 @@ Example usage (Linux and Mac OS):
 ```
 
 #### Keyboard 
-- `WASD`: Movement
+- `WASD`: Movement (like in PC games)
+- `Q`: Fly up
+- `E`: Fly down
 - Arrow keys: Look around
 - `O`: Toggle options windows
 - `L`: Set light direction to current direction

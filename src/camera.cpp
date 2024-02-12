@@ -125,6 +125,10 @@ void Camera::processKeyboard(CameraAction direction, float deltaTime)
         _position -= _right * velocity;
     if (direction == CameraAction::MOVE_RIGHT)
         _position += _right * velocity;
+    if (direction == CameraAction::MOVE_UP)
+        _position += _up * velocity;
+    if (direction == CameraAction::MOVE_DOWN)
+        _position -= _up * velocity;
     if (direction == CameraAction::LOOK_UP)
         _pitch = std::fmin(89, _pitch + 1);
     if (direction == CameraAction::LOOK_DOWN)
