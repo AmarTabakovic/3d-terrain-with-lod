@@ -412,7 +412,7 @@ int run()
         fpsCount++;
 
         /* Update window title with framerate */
-        std::string newTitle = "ATLOD: " + std::to_string(1.0f / deltaTime) + " FPS";
+        std::string newTitle = "ATLOD: " + std::to_string((int)std::round(1.0f / deltaTime)) + " FPS";
         glfwSetWindowTitle(window, newTitle.c_str());
 
         /* Set active terrain */
