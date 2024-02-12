@@ -76,10 +76,8 @@ void GeoMipMapping::render(Camera camera)
         _lastCamera = camera;
 
     /* ================================ First pass ===============================
-     * - For each block:
-     *   - Check and update the distance to camera
-     *   - Update the LOD level
-     *   - Update the neighborhood border bitmap */
+     * - For each block, check and update the LOD based on the distance to camera
+     */
     for (unsigned i = 0; i < _nBlocksZ; i++) {
         for (unsigned j = 0; j < _nBlocksX; j++) {
             GeoMipMappingBlock& block = getBlock(j, i);
@@ -91,7 +89,14 @@ void GeoMipMapping::render(Camera camera)
                 block.currentLod = _maxLod;
             else if (!_freezeCamera)
                 block.currentLod = determineLodDistance(squaredDistance, _baseDistance, _doubleDistanceEachLevel);
+        }
+    }
 
+    /* ============================== Second pass =============================
+     * - For each block, update the border bitmap */
+    for (unsigned i = 0; i < _nBlocksZ; i++) {
+        for (unsigned j = 0; j < _nBlocksX; j++) {
+            GeoMipMappingBlock& block = getBlock(j, i);
             block.currentBorderBitmap = calculateBorderBitmap(block.blockId, j, i);
         }
     }
@@ -111,7 +116,7 @@ void GeoMipMapping::render(Camera camera)
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, _heightmap.heightmapTextureId());
 
-    /* ============================== Second pass =============================
+    /* =============================== Third pass =============================
      * - For each block:
      *   - Check frustum culling
      *   - Set uniforms
