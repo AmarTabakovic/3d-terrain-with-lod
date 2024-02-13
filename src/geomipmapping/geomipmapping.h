@@ -84,7 +84,7 @@ public:
 
 private:
     GeoMipMappingBlock& getBlock(unsigned x, unsigned z);
-    unsigned calculateBorderBitmap(unsigned currentBlockId, unsigned x, unsigned y);
+    unsigned calculateBorderBitmap(unsigned currentBlockId);
     unsigned determineLodDistance(float distance, float baseDist, bool doubleEachLevel = true);
     unsigned determineLodPaper(float distance);
 

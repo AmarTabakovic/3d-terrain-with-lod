@@ -75,29 +75,34 @@ void GeoMipMapping::render(Camera camera)
     if (!_freezeCamera)
         _lastCamera = camera;
 
+    std::vector<unsigned> visibleBlocks;
+    visibleBlocks.reserve(_nBlocksX * _nBlocksZ);
+
     /* ================================ First pass ===============================
-     * - For each block, check and update the LOD based on the distance to camera
+     * - For each block:
+     *   - Check whether the block intersects the view-frustum and
+     *     add it to the list of visible blocks if so
+     *   - Update the block's LOD based on the distance to the camera
      */
     for (unsigned i = 0; i < _nBlocksZ; i++) {
         for (unsigned j = 0; j < _nBlocksX; j++) {
             GeoMipMappingBlock& block = getBlock(j, i);
 
-            glm::vec3 temp = block.worldCenter - _lastCamera.position();
-            float squaredDistance = glm::dot(temp, temp);
+            /* Add current block to visible block list if it intersects with
+             * the view-frustum and calculate new LOD level */
+            bool intersects = _lastCamera.insideViewFrustum(block.p1, block.p2);
 
-            if (!_lodActive)
-                block.currentLod = _maxLod;
-            else if (!_freezeCamera)
-                block.currentLod = determineLodDistance(squaredDistance, _baseDistance, _doubleDistanceEachLevel);
-        }
-    }
+            if (!_frustumCullingActive || intersects) {
+                visibleBlocks.push_back(block.blockId);
 
-    /* ============================== Second pass =============================
-     * - For each block, update the border bitmap */
-    for (unsigned i = 0; i < _nBlocksZ; i++) {
-        for (unsigned j = 0; j < _nBlocksX; j++) {
-            GeoMipMappingBlock& block = getBlock(j, i);
-            block.currentBorderBitmap = calculateBorderBitmap(block.blockId, j, i);
+                glm::vec3 temp = block.worldCenter - _lastCamera.position();
+                float squaredDistance = glm::dot(temp, temp);
+
+                if (!_lodActive)
+                    block.currentLod = _maxLod;
+                else if (!_freezeCamera)
+                    block.currentLod = determineLodDistance(squaredDistance, _baseDistance, _doubleDistanceEachLevel);
+            }
         }
     }
 
@@ -116,52 +121,46 @@ void GeoMipMapping::render(Camera camera)
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, _heightmap.heightmapTextureId());
 
-    /* =============================== Third pass =============================
-     * - For each block:
-     *   - Check frustum culling
+    /* ============================== Second pass =============================
+     * - For each visible block:
+     *   - Update border bitmap
      *   - Set uniforms
      *   - Render center and border subblocks */
-    for (unsigned i = 0; i < _nBlocksZ; i++) {
-        for (unsigned j = 0; j < _nBlocksX; j++) {
-            GeoMipMappingBlock& block = getBlock(j, i);
+    for (auto id : visibleBlocks) {
+        GeoMipMappingBlock& block = _blocks[id];
+        block.currentBorderBitmap = calculateBorderBitmap(id);
 
-            /* Skip current block if not inside view frustum */
-            bool intersects = _lastCamera.insideViewFrustum(block.p1, block.p2);
-            if (_frustumCullingActive && !intersects)
-                continue;
+        float r = 0.3f, g = 0.3f, b = 0.3f;
 
-            float r = 0.3f, g = 0.3f, b = 0.3f;
+        if (block.currentLod % 3 == 0)
+            r = 0.7f;
+        else if (block.currentLod % 3 == 1)
+            g = 0.7f;
+        else
+            b = 0.7f;
 
-            if (block.currentLod % 3 == 0)
-                r = 0.7f;
-            else if (block.currentLod % 3 == 1)
-                g = 0.7f;
-            else
-                b = 0.7f;
+        shader().setVec4("inColor", glm::vec4(r, g, b, 1.0f));
+        shader().setVec2("offset", block.translation);
 
-            shader().setVec4("inColor", glm::vec4(r, g, b, 1.0f));
-            shader().setVec2("offset", block.translation);
+        unsigned currentIndex = block.currentLod - _minLod;
 
-            unsigned currentIndex = block.currentLod - _minLod;
-
-            /* First render the center subblocks (only for LOD >= 2, since
-             * LOD 0 and 1 do not have a center block) */
-            if (block.currentLod >= 2) {
-                glDrawElements(GL_TRIANGLE_STRIP,
-                    centerSizes[currentIndex],
-                    GL_UNSIGNED_INT,
-                    (void*)(centerStarts[currentIndex] * sizeof(unsigned)));
-            }
-
-            /* Then render the border subblocks
-             * Note: This couild probably be optimized with
-             * glMultiDrawElements() */
-            currentIndex = currentIndex * 16 + block.currentBorderBitmap;
+        /* First render the center subblocks (only for LOD >= 2, since
+         * LOD 0 and 1 do not have a center block) */
+        if (block.currentLod >= 2) {
             glDrawElements(GL_TRIANGLE_STRIP,
-                borderSizes[currentIndex],
+                centerSizes[currentIndex],
                 GL_UNSIGNED_INT,
-                (void*)(borderStarts[currentIndex] * sizeof(unsigned)));
+                (void*)(centerStarts[currentIndex] * sizeof(unsigned)));
         }
+
+        /* Then render the border subblocks
+         * Note: This couild probably be optimized with
+         * glMultiDrawElements() */
+        currentIndex = currentIndex * 16 + block.currentBorderBitmap;
+        glDrawElements(GL_TRIANGLE_STRIP,
+            borderSizes[currentIndex],
+            GL_UNSIGNED_INT,
+            (void*)(borderStarts[currentIndex] * sizeof(unsigned)));
     }
 
     AtlodUtil::checkGlError("GeoMipMapping render failed");
@@ -301,10 +300,11 @@ void GeoMipMapping::loadIndices()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned), &indices[0], GL_STATIC_DRAW);
 }
 
-/* I realized a bit too late that I can leave out the currentBlockId, since I can
- * calculate it with x and z anyway, but oh well */
-unsigned GeoMipMapping::calculateBorderBitmap(unsigned currentBlockId, unsigned x, unsigned z)
+unsigned GeoMipMapping::calculateBorderBitmap(unsigned currentBlockId)
 {
+    unsigned z = std::floor((float)currentBlockId / (float)_nBlocksX);
+    unsigned x = currentBlockId - z * _nBlocksX;
+
     unsigned currentLod = _blocks[currentBlockId].currentLod;
 
     unsigned maxX = std::max((int)x - 1, 0);
